@@ -7,13 +7,14 @@ import Qibla from './pages/Qibla';
 import Tasbeeh from './pages/Tasbeeh';
 import SurahDetail from './pages/SurahDetail';
 import LocationManager from './components/LocationManager';
-import { useTheme } from './contexts/ThemeContext';
+import About from './pages/About';
+import Settings from './pages/Settings';
 
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.Home);
   const [viewingSurah, setViewingSurah] = useState<number | null>(null);
   const [locationReady, setLocationReady] = useState<boolean>(false);
-  const { theme } = useTheme();
+  const [fullPageView, setFullPageView] = useState<'about' | 'settings' | null>(null);
 
   useEffect(() => {
     const savedLocation = localStorage.getItem('userLocation');
@@ -23,6 +24,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleSurahSelect = (surahNumber: number) => {
+    setFullPageView(null);
     setViewingSurah(surahNumber);
   };
 
@@ -32,6 +34,7 @@ const App: React.FC = () => {
 
   const changePage = (page: Page) => {
     setViewingSurah(null);
+    setFullPageView(null);
     setActivePage(page);
   };
 
@@ -42,7 +45,7 @@ const App: React.FC = () => {
 
     switch (activePage) {
       case Page.Home:
-        return <Home />;
+        return <Home onOpenAbout={() => setFullPageView('about')} onOpenSettings={() => setFullPageView('settings')} />;
       case Page.Quran:
         return <Quran onSurahSelect={handleSurahSelect} />;
       case Page.Qibla:
@@ -50,9 +53,16 @@ const App: React.FC = () => {
       case Page.Tasbeeh:
         return <Tasbeeh />;
       default:
-        return <Home />;
+        return <Home onOpenAbout={() => setFullPageView('about')} onOpenSettings={() => setFullPageView('settings')} />;
     }
   };
+
+  if (fullPageView === 'about') {
+    return <About onBack={() => setFullPageView(null)} />;
+  }
+  if (fullPageView === 'settings') {
+    return <Settings onBack={() => setFullPageView(null)} />;
+  }
 
   if (!locationReady) {
     return <LocationManager onLocationSet={() => setLocationReady(true)} />;
@@ -61,7 +71,7 @@ const App: React.FC = () => {
   const showNav = !viewingSurah;
 
   return (
-    <div className={`${theme} min-h-screen font-sans text-gray-800 dark:text-white bg-white dark:bg-[#143d31] flex flex-col`}>
+    <div className="min-h-screen font-sans flex flex-col">
       <main className={`flex-grow ${showNav ? 'pb-20' : ''}`}>
         {renderPage()}
       </main>

@@ -15,7 +15,12 @@ const prayerIcons: { [key: string]: React.ElementType } = {
   Isha: IshaIcon,
 };
 
-const Home: React.FC = () => {
+interface HomeProps {
+    onOpenAbout: () => void;
+    onOpenSettings: () => void;
+}
+
+const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
     const [location, setLocation] = useState<{ city: string, latitude: number, longitude: number } | null>(null);
     const [prayerData, setPrayerData] = useState<PrayerData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -122,7 +127,12 @@ const Home: React.FC = () => {
 
     return (
         <div className="p-4">
-            <TopBar location={location?.city || "Set Location"} onLocationClick={() => setIsLocationModalOpen(true)} />
+            <TopBar 
+                location={location?.city || "Set Location"} 
+                onLocationClick={() => setIsLocationModalOpen(true)}
+                onOpenAbout={onOpenAbout}
+                onOpenSettings={onOpenSettings}
+            />
             
             {isLocationModalOpen && <LocationModal onClose={() => setIsLocationModalOpen(false)} onLocationSet={handleLocationUpdate} />}
 
@@ -133,31 +143,31 @@ const Home: React.FC = () => {
                     <span className="font-bold">{prayerData && currentPrayer ? prayerData.timings[currentPrayer].split(':')[1] : '00'}</span>
                     <span className="text-5xl align-top ml-2">PM</span>
                 </p>
-                <p className="text-gray-600 dark:text-gray-300">Next prayer in {timeToNextPrayer}</p>
+                <p className="text-secondary">Next prayer in {timeToNextPrayer}</p>
             </div>
 
             <div className="flex items-center justify-between text-sm my-6">
-                <ChevronLeftIcon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                <ChevronLeftIcon className="w-6 h-6 text-secondary" />
                 <div>
                     <span className="font-semibold">{prayerData?.date.readable}</span>
-                    <span className="text-gray-500 dark:text-gray-400"> • {prayerData?.date.hijri.day} {prayerData?.date.hijri.month.en}, {prayerData?.date.hijri.year} AH</span>
+                    <span className="text-secondary"> • {prayerData?.date.hijri.day} {prayerData?.date.hijri.month.en}, {prayerData?.date.hijri.year} AH</span>
                 </div>
-                <ChevronRightIcon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                <ChevronRightIcon className="w-6 h-6 text-secondary" />
             </div>
 
-            <div className="bg-gray-100 dark:bg-[#1a4538] rounded-2xl p-4 space-y-2">
+            <div className="bg-secondary rounded-2xl p-4 space-y-2">
                 {prayerOrder.map(prayer => {
                     const PrayerIcon = prayerIcons[prayer];
                     const isActive = prayer === currentPrayer;
                     return (
-                        <div key={prayer} className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? 'bg-green-100 dark:bg-[#346b5a] border border-yellow-400' : ''}`}>
+                        <div key={prayer} className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? 'bg-tertiary accent-border border' : ''}`}>
                             <div className="flex items-center space-x-4">
-                                <PrayerIcon className={`w-5 h-5 ${isActive ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-300'}`} />
+                                <PrayerIcon className={`w-5 h-5 ${isActive ? 'accent-text' : 'text-secondary'}`} />
                                 <span className="font-medium">{prayer}</span>
                             </div>
                             <div className="flex items-center space-x-4">
                                 <span className="font-mono text-lg">{prayerData?.timings[prayer]}</span>
-                                <div className="w-5 h-5 border-2 border-gray-400 dark:border-gray-500 rounded"></div>
+                                <div className="w-5 h-5 border-2 border-secondary rounded"></div>
                             </div>
                         </div>
                     );

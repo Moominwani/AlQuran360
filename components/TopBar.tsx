@@ -1,35 +1,56 @@
-import React from 'react';
-import { LocationIcon, SunIcon, MoonIcon } from '../contexts/MiscIcons';
-import { useTheme } from '../contexts/ThemeContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { LocationIcon, MoreVerticalIcon } from '../contexts/MiscIcons';
 
 interface TopBarProps {
     location: string;
     onLocationClick: () => void;
+    onOpenAbout: () => void;
+    onOpenSettings: () => void;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ location, onLocationClick }) => {
-    const { theme, toggleTheme } = useTheme();
-    const isDarkMode = theme === 'dark';
+const TopBar: React.FC<TopBarProps> = ({ location, onLocationClick, onOpenAbout, onOpenSettings }) => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     return (
         <div className="flex items-center justify-between p-4 bg-transparent">
             <button onClick={onLocationClick} className="flex items-center space-x-1 cursor-pointer">
-                <LocationIcon className="w-4 h-4 text-gray-500 dark:text-gray-300" />
-                <span className="text-sm font-medium text-gray-500 dark:text-gray-300">{location}</span>
+                <LocationIcon className="w-4 h-4 text-secondary" />
+                <span className="text-sm font-medium text-secondary">{location}</span>
             </button>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">AlQuran360</h1>
-            <div className="flex items-center space-x-2">
-                <SunIcon className={`w-5 h-5 ${!isDarkMode ? 'text-yellow-400' : 'text-gray-500'}`} />
-                <button 
-                    onClick={toggleTheme}
-                    aria-label="Toggle dark mode"
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isDarkMode ? 'bg-gray-600' : 'bg-gray-200'}`}
-                >
-                    <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isDarkMode ? 'translate-x-5' : 'translate-x-0'}`}
-                    />
+            <h1 className="text-xl font-bold text-primary">AlQuran360</h1>
+            <div className="relative" ref={menuRef}>
+                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-primary">
+                    <MoreVerticalIcon className="w-6 h-6" />
                 </button>
-                <MoonIcon className={`w-5 h-5 ${isDarkMode ? 'text-yellow-400' : 'text-gray-500'}`} />
+                {isMenuOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-secondary rounded-lg shadow-lg py-1 z-20 border border-primary animate-fade-in-up">
+                        <button 
+                            onClick={() => { onOpenSettings(); setIsMenuOpen(false); }} 
+                            className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-tertiary transition-colors"
+                        >
+                            Settings
+                        </button>
+                        <button 
+                            onClick={() => { onOpenAbout(); setIsMenuOpen(false); }} 
+                            className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-tertiary transition-colors"
+                        >
+                            About
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

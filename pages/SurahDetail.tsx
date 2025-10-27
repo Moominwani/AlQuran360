@@ -159,25 +159,25 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack }) => {
   };
 
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-black text-white"><p>Loading Surah...</p></div>;
-  if (error) return <div className="flex items-center justify-center h-screen bg-black text-white"><p className="text-red-400">Error: {error}</p></div>;
+  if (loading) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p>Loading Surah...</p></div>;
+  if (error) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p className="text-red-400">Error: {error}</p></div>;
   if (!surahData) return null;
 
   return (
-    <div className={`bg-black text-gray-200 min-h-screen ${currentAyah ? 'pb-40' : 'pb-4'}`}>
-      <header className="sticky top-0 bg-black z-10 p-4 flex items-center justify-between shadow-md shadow-gray-800/50">
-        <button onClick={onBack} className="p-2"><BackIcon className="w-6 h-6 text-white" /></button>
+    <div className={`bg-primary text-primary min-h-screen ${currentAyah ? 'pb-40' : 'pb-4'}`}>
+      <header className="sticky top-0 bg-primary z-10 p-4 flex items-center justify-between border-b border-primary">
+        <button onClick={onBack} className="p-2"><BackIcon className="w-6 h-6 text-primary" /></button>
         <div className="text-center">
-            <h1 className="text-xl font-bold text-white">{surahData.englishName}</h1>
-            <p className="text-sm text-gray-400">{surahData.englishNameTranslation}</p>
+            <h1 className="text-xl font-bold text-primary">{surahData.englishName}</h1>
+            <p className="text-sm text-secondary">{surahData.englishNameTranslation}</p>
         </div>
         <div className="w-10 h-10"></div>
       </header>
       
       <div className="p-4 space-y-6">
-        <div className="bg-[#1e1e1e] rounded-xl p-4 text-center">
-            <p className="font-amiri text-3xl mb-2 text-white">{surahData.name}</p>
-            <p className="text-sm text-gray-400 uppercase tracking-widest">
+        <div className="bg-secondary rounded-xl p-4 text-center">
+            <p className="font-amiri text-3xl mb-2 text-primary">{surahData.name}</p>
+            <p className="text-sm text-secondary uppercase tracking-widest">
                 {surahData.revelationType} • {surahData.numberOfAyahs} VERSES
             </p>
         </div>
@@ -186,17 +186,17 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack }) => {
           <div 
             key={ayah.number} 
             onClick={(e) => handleAyahClick(e, ayah)}
-            className={`cursor-pointer rounded-lg p-2 transition-colors duration-300 border-b border-gray-800 pb-6
+            className={`cursor-pointer rounded-lg p-2 transition-colors duration-300 border-b border-primary pb-6
               ${currentAyah?.number === ayah.number ? 'bg-green-500/20' : ''}
               ${selectedAyah?.number === ayah.number ? 'bg-blue-500/20' : ''}
             `}
           >
             <div className="flex justify-between items-center mb-4">
-              <span className="text-sm font-bold bg-[#1e1e1e] text-gray-300 px-2 py-1 rounded">
+              <span className="text-sm font-bold bg-secondary text-secondary px-2 py-1 rounded">
                 {surahData.number}:{ayah.numberInSurah}
               </span>
             </div>
-            <p className="text-right font-amiri text-3xl leading-loose text-white">
+            <p className="text-right font-amiri text-3xl leading-loose text-primary">
               {ayah.text}
             </p>
           </div>
