@@ -1,6 +1,44 @@
-
-
 import { HadithCollection } from './types';
+
+export interface Dhikr {
+  arabic: string;
+  transliteration: string;
+  translation: string;
+}
+
+export const dhikrData: Dhikr[] = [
+  {
+    arabic: 'لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ',
+    transliteration: 'La ilaha illal-lahu wahdahu la shareeka lah, lahul-mulku walahul-hamd, wahuwa AAala kulli shayin qadeer',
+    translation: 'None has the right to be worshipped except Allah, alone, without partner. To Him belongs all sovereignty and praise and He is over all things omnipotent.'
+  },
+  {
+    arabic: 'سُبْحَانَ اللَّهِ',
+    transliteration: 'Subhan-Allah',
+    translation: 'Glory be to Allah.'
+  },
+  {
+    arabic: 'الْحَمْدُ لِلَّهِ',
+    transliteration: 'Alhamdulillah',
+    translation: 'All praise is due to Allah.'
+  },
+  {
+    arabic: 'اللَّهُ أَكْبَرُ',
+    transliteration: 'Allahu Akbar',
+    translation: 'Allah is the Greatest.'
+  },
+  {
+    arabic: 'أَسْتَغْفِرُ اللَّهَ',
+    transliteration: 'Astaghfirul-lah',
+    translation: 'I seek forgiveness from Allah.'
+  },
+  {
+    arabic: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ',
+    transliteration: 'Subhan-Allahi wa bihamdihi, Subhan-Allahil-Azeem',
+    translation: 'Glory be to Allah and praise Him, Glory be to Allah the Supreme.'
+  }
+];
+
 
 export const HADITH_COLLECTIONS: HadithCollection[] = [
   // FIX: Updated object to match the HadithCollection interface. Renamed 'hadiths' to 'hadithsCount', 'books' to 'booksCount' and added the required 'books' array.

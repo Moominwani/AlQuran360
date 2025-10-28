@@ -1,88 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AlQuran360</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      body {
-        overscroll-behavior-y: none;
-      }
-      @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
-      .font-amiri {
-        font-family: 'Amiri', serif;
-      }
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      .animate-fade-in {
-        animation: fadeIn 0.2s ease-out forwards;
-      }
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-fade-in-up {
-        animation: fadeInUp 0.2s ease-out forwards;
-      }
-
-      /* THEME STYLES */
-      /* Light Theme (default) */
-      body { background-color: #ffffff; color: #1f2937; }
-      .bg-primary { background-color: #ffffff; }
-      .bg-secondary { background-color: #f3f4f6; }
-      .bg-tertiary { background-color: #d1fae5; }
-      .bg-quaternary { background-color: #e5e7eb; }
-      .text-primary { color: #1f2937; }
-      .text-secondary { color: #6b7280; }
-      .text-inverted { color: #ffffff; }
-      .placeholder-color::placeholder { color: #6b7280; }
-      .border-primary { border-color: #e5e7eb; }
-      .border-secondary { border-color: #4b5563; }
-      .accent-text { color: #eec35a; }
-      .accent-bg { background-color: #facc15; }
-      .accent-border { border-color: #facc15; }
-
-      /* Dim Theme */
-      .dim body { background-color: #0d2821; color: #e5e7eb; }
-      .dim .bg-primary { background-color: #0d2821; }
-      .dim .bg-secondary { background-color: #113129; }
-      .dim .bg-tertiary { background-color: #1a4538; }
-      .dim .bg-quaternary { background-color: #374151; }
-      .dim .text-primary { color: #e5e7eb; }
-      .dim .text-secondary { color: #9ca3af; }
-      .dim .text-inverted { color: #0d2821; }
-      .dim .placeholder-color::placeholder { color: #9ca3af; }
-      .dim .border-primary { border-color: #374151; }
-      .dim .border-secondary { border-color: #4b5563; }
-
-      /* Lights Out Theme */
-      .lightsOut body { background-color: #000000; color: #e5e7eb; }
-      .lightsOut .bg-primary { background-color: #000000; }
-      .lightsOut .bg-secondary { background-color: #111827; }
-      .lightsOut .bg-tertiary { background-color: #1f2937; }
-      .lightsOut .bg-quaternary { background-color: #374151; }
-      .lightsOut .text-primary { color: #e5e7eb; }
-      .lightsOut .text-secondary { color: #9ca3af; }
-      .lightsOut .text-inverted { color: #000000; }
-      .lightsOut .placeholder-color::placeholder { color: #6b7280; }
-      .lightsOut .border-primary { border-color: #374151; }
-      .lightsOut .border-secondary { border-color: #4b5563; }
-    </style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlQuran360</title>
   <script type="importmap">
 {
   "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+    "firebase/": "https://aistudiocdn.com/firebase@^12.4.0/",
+    "idb": "https://aistudiocdn.com/idb@^9.0.0"
   }
 }
 </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --font-sans: 'Poppins', sans-serif;
+      --font-amiri: 'Amiri', serif;
+    }
+
+    body {
+        font-family: var(--font-sans);
+        transition: background-color 0.5s ease, color 0.5s ease;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    .font-amiri {
+        font-family: var(--font-amiri);
+    }
+
+    /* Keyframes for animations */
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fade-in 0.3s ease-out; }
+    .animate-fade-in-up { animation: fade-in-up 0.3s ease-out; }
+
+    @keyframes plus-one {
+        0% { transform: translateY(0) scale(1); opacity: 1; }
+        100% { transform: translateY(-30px) scale(1.5); opacity: 0; }
+    }
+    .animate-plus-one {
+        animation: plus-one 0.5s ease-out forwards;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+
+    /* Light Theme (Default) */
+    .light {
+        --color-primary: #121212; /* Main Text */
+        --color-secondary: #6b7280; /* Secondary Text, backgrounds */
+        --color-tertiary: #f3f4f6; /* Tertiary backgrounds */
+        --color-accent: #10B981; /* Accent color */
+        --color-accent-text: #10B981;
+        --color-inverted: #FFFFFF; /* Text on accent bg */
+        --bg-primary: #FFFFFF;
+        --bg-secondary: #f9fafb;
+        --bg-tertiary: #f3f4f6;
+        --border-primary: #e5e7eb;
+        --placeholder-color: #9ca3af;
+    }
+    
+    /* Dim Theme */
+    .dim {
+        --color-primary: #e5e7eb;
+        --color-secondary: #9ca3af;
+        --color-tertiary: #374151;
+        --color-accent: #10B981;
+        --color-accent-text: #10B981;
+        --color-inverted: #FFFFFF;
+        --bg-primary: #1c2722;
+        --bg-secondary: #2c3a34;
+        --bg-tertiary: #3d4d45;
+        --border-primary: #374151;
+        --placeholder-color: #6b7280;
+    }
+
+    /* Lights Out Theme */
+    .lightsOut {
+        --color-primary: #f9fafb;
+        --color-secondary: #9ca3af;
+        --color-tertiary: #1f2937;
+        --color-accent: #10B981;
+        --color-accent-text: #10B981;
+        --color-inverted: #FFFFFF;
+        --bg-primary: #000000;
+        --bg-secondary: #111827;
+        --bg-tertiary: #1f2937;
+        --border-primary: #374151;
+        --placeholder-color: #6b7280;
+    }
+
+    /* Custom theme base */
+    .custom {
+      --bg-primary: var(--custom-bg-color);
+      --color-accent: #10B981;
+      --color-accent-text: #10B981;
+      --color-inverted: #FFFFFF;
+    }
+
+    /* Styles for custom theme with light background */
+    .custom-light-bg {
+      --color-primary: #121212;
+      --color-secondary: #4b5563;
+      --bg-secondary: rgba(0,0,0,0.05);
+      --bg-tertiary: rgba(0,0,0,0.1);
+      --border-primary: rgba(0,0,0,0.1);
+      --placeholder-color: #6b7280;
+    }
+
+    /* Styles for custom theme with dark background */
+    .custom-dark-bg {
+      --color-primary: #f9fafb;
+      --color-secondary: #9ca3af;
+      --bg-secondary: rgba(255,255,255,0.1);
+      --bg-tertiary: rgba(255,255,255,0.15);
+      --border-primary: rgba(255,255,255,0.2);
+      --placeholder-color: #6b7280;
+    }
+
+
+    /* Utility Classes */
+    body {
+        background-color: var(--bg-primary);
+        color: var(--color-primary);
+    }
+    .bg-primary { background-color: var(--bg-primary); }
+    .bg-secondary { background-color: var(--bg-secondary); }
+    .bg-tertiary { background-color: var(--bg-tertiary); }
+    .accent-bg { background-color: var(--color-accent); }
+    .text-primary { color: var(--color-primary); }
+    .text-secondary { color: var(--color-secondary); }
+    .accent-text { color: var(--color-accent-text); }
+    .text-inverted { color: var(--color-inverted); }
+    .border-primary { border-color: var(--border-primary); }
+    .accent-border { border-color: var(--color-accent); }
+    .placeholder-color::placeholder { color: var(--placeholder-color); }
+
+  </style>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

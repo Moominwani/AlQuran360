@@ -3,6 +3,7 @@ import TopBar from '../components/TopBar';
 import LocationModal from '../components/LocationModal';
 import { PrayerData } from '../types';
 import { ChevronLeftIcon, ChevronRightIcon, FajrIcon, SunriseIcon, DhuhrIcon, AsrIcon, MaghribIcon, IshaIcon } from '../contexts/MiscIcons';
+import { useTimeFormat } from '../contexts/TimeFormatContext';
 
 const prayerOrder = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
@@ -27,6 +28,18 @@ const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
     const [error, setError] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+    const { timeFormat } = useTimeFormat();
+
+    const formatPrayerTime = (time24: string): string => {
+        if (timeFormat === '24h' || !time24) {
+            return time24 || '';
+        }
+        const [hour, minute] = time24.split(':');
+        let h = parseInt(hour, 10);
+        const period = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12; // Convert 0 to 12 for 12 AM
+        return `${String(h).padStart(2, '0')}:${minute} ${period}`;
+    };
 
     useEffect(() => {
         const savedLocation = localStorage.getItem('userLocation');
@@ -124,6 +137,10 @@ const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
     
     if (loading) return <div className="flex items-center justify-center h-screen"><p>Loading prayer times...</p></div>;
     if (error && !location) return <div className="flex flex-col items-center justify-center h-screen"><p className="text-red-400">Error: {error}</p><button onClick={() => setIsLocationModalOpen(true)} className="mt-4 px-4 py-2 bg-green-500 text-white rounded">Set Location</button></div>;
+    
+    const mainPrayerTimeFull = prayerData && currentPrayer ? formatPrayerTime(prayerData.timings[currentPrayer]) : '00:00';
+    const [mainTime, mainPeriod] = mainPrayerTimeFull.split(' ');
+    const [mainHour, mainMinute] = mainTime.split(':');
 
     return (
         <div className="p-4">
@@ -139,9 +156,9 @@ const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
             <div className="text-center my-8">
                 <h2 className="text-4xl font-bold">{currentPrayer || 'Loading...'}</h2>
                 <p className="text-8xl font-light tracking-tighter my-2">
-                    {prayerData && currentPrayer ? prayerData.timings[currentPrayer].split(':')[0] : '00'}:
-                    <span className="font-bold">{prayerData && currentPrayer ? prayerData.timings[currentPrayer].split(':')[1] : '00'}</span>
-                    <span className="text-5xl align-top ml-2">PM</span>
+                    {mainHour}:
+                    <span className="font-bold">{mainMinute}</span>
+                    {mainPeriod && <span className="text-5xl align-top ml-2">{mainPeriod}</span>}
                 </p>
                 <p className="text-secondary">Next prayer in {timeToNextPrayer}</p>
             </div>
@@ -166,7 +183,7 @@ const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
                                 <span className="font-medium">{prayer}</span>
                             </div>
                             <div className="flex items-center space-x-4">
-                                <span className="font-mono text-lg">{prayerData?.timings[prayer]}</span>
+                                <span className="font-mono text-lg">{prayerData ? formatPrayerTime(prayerData.timings[prayer]) : ''}</span>
                                 <div className="w-5 h-5 border-2 border-secondary rounded"></div>
                             </div>
                         </div>

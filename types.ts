@@ -1,6 +1,7 @@
 export enum Page {
   Home = 'Home',
   Quran = 'Quran',
+  Hadith = 'Hadith',
   Qibla = 'Qibla',
   Tasbeeh = 'Tasbeeh',
 }

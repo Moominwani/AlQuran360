@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, QuranIcon, QiblaIcon, TasbeehIcon } from './icons/NavIcons';
+import { HomeIcon, QuranIcon, QiblaIcon, TasbeehIcon, HadithIcon } from './icons/NavIcons';
 
 interface BottomNavProps {
   activePage: Page;
@@ -29,12 +29,13 @@ const NavItem: React.FC<{
 
 const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage }) => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-16 bg-secondary shadow-lg border-t border-secondary/50">
+    <div className="fixed bottom-0 left-0 right-0 h-16 bg-secondary shadow-lg border-t border-secondary/50 z-40">
       <div className="flex justify-around items-center h-full max-w-lg mx-auto">
         <NavItem page={Page.Home} activePage={activePage} setActivePage={setActivePage} Icon={HomeIcon} />
         <NavItem page={Page.Quran} activePage={activePage} setActivePage={setActivePage} Icon={QuranIcon} />
-        <NavItem page={Page.Qibla} activePage={activePage} setActivePage={setActivePage} Icon={QiblaIcon} />
+        <NavItem page={Page.Hadith} activePage={activePage} setActivePage={setActivePage} Icon={HadithIcon} />
         <NavItem page={Page.Tasbeeh} activePage={activePage} setActivePage={setActivePage} Icon={TasbeehIcon} />
+        <NavItem page={Page.Qibla} activePage={activePage} setActivePage={setActivePage} Icon={QiblaIcon} />
       </div>
     </div>
   );

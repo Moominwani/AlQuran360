@@ -8,7 +8,7 @@ const Hadith: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [view, setView] = useState<'collections' | 'books' | 'chapters' | 'hadiths'>('collections');
+  const [view, setView] = useState<'collections' | 'books' | 'chapters' | 'hadiths' | 'favorites'>('collections');
   const [selectedCollection, setSelectedCollection] = useState<HadithCollection | null>(null);
   const [selectedBook, setSelectedBook] = useState<HadithBook | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<HadithChapter | null>(null);
@@ -53,6 +53,12 @@ const Hadith: React.FC = () => {
     } else {
       updatedFavorites = [...favorites, { ...hadith, id: hadithId }];
     }
+    setFavorites(updatedFavorites);
+    localStorage.setItem('hadithFavorites', JSON.stringify(updatedFavorites));
+  };
+
+  const removeFromFavorites = (hadithId: string) => {
+    const updatedFavorites = favorites.filter(f => f.id !== hadithId);
     setFavorites(updatedFavorites);
     localStorage.setItem('hadithFavorites', JSON.stringify(updatedFavorites));
   };
@@ -121,13 +127,15 @@ const Hadith: React.FC = () => {
     } else if (view === 'books') {
         setView('collections');
         setSelectedCollection(null);
+    } else if (view === 'favorites') {
+        setView('collections');
     }
   }
 
   const Header: React.FC<{title: string; onBack?: () => void}> = ({ title, onBack }) => (
     <div className="flex items-center mb-4">
-        {onBack && <button onClick={onBack} className="p-2 mr-2"><ChevronLeftIcon className="w-6 h-6"/></button>}
-        <h1 className="text-2xl font-bold">{title}</h1>
+        {onBack && <button onClick={onBack} className="p-2 mr-2"><ChevronLeftIcon className="w-6 h-6 text-primary"/></button>}
+        <h1 className="text-2xl font-bold text-primary">{title}</h1>
     </div>
   );
 
@@ -138,22 +146,30 @@ const Hadith: React.FC = () => {
     <div className="p-4">
       {view === 'collections' && (
         <>
-          <Header title="Hadith Collections"/>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-primary">Hadith Collections</h1>
+            <button 
+                onClick={() => { loadFavorites(); setView('favorites'); }} 
+                className="text-sm font-medium accent-text flex items-center bg-secondary px-3 py-2 rounded-lg"
+            >
+                <FilledStarIcon className="w-5 h-5 mr-2 text-yellow-400"/> Favorites
+            </button>
+          </div>
           <div className="space-y-4">
             {collections.map(collection => (
-              <div key={collection.name} onClick={() => handleCollectionSelect(collection)} className="bg-gray-100 dark:bg-[#1a4538] rounded-xl p-4 flex items-start space-x-4 cursor-pointer">
-                <div className="flex-shrink-0 w-16 h-16 bg-white dark:bg-[#143d31] rounded-lg flex items-center justify-center">
-                  <BookOpenIcon className="w-8 h-8 text-gray-500 dark:text-gray-300" />
+              <div key={collection.name} onClick={() => handleCollectionSelect(collection)} className="bg-secondary rounded-xl p-4 flex items-start space-x-4 cursor-pointer">
+                <div className="flex-shrink-0 w-16 h-16 bg-tertiary rounded-lg flex items-center justify-center">
+                  <BookOpenIcon className="w-8 h-8 text-secondary" />
                 </div>
                 <div className="flex-grow">
                   <div className="flex justify-between items-start">
                       <div>
-                        <h2 className="font-bold text-lg">{collection.collection.find((c:any) => c.lang === 'en').title}</h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{collection.collection.find((c:any) => c.lang === 'en').shortIntro}</p>
+                        <h2 className="font-bold text-lg text-primary">{collection.collection.find((c:any) => c.lang === 'en').title}</h2>
+                        <p className="text-sm text-secondary mt-1 line-clamp-2">{collection.collection.find((c:any) => c.lang === 'en').shortIntro}</p>
                       </div>
-                      <ChevronRightIcon className="w-6 h-6 text-gray-400 flex-shrink-0 ml-2" />
+                      <ChevronRightIcon className="w-6 h-6 text-secondary flex-shrink-0 ml-2" />
                   </div>
-                  <div className="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-300 mt-3">
+                  <div className="flex items-center space-x-4 text-xs text-secondary mt-3">
                     <span>{collection.total} Hadith</span>
                   </div>
                 </div>
@@ -163,14 +179,41 @@ const Hadith: React.FC = () => {
         </>
       )}
 
+      {view === 'favorites' && (
+        <>
+            <Header title="Favorite Hadiths" onBack={goBack} />
+            {favorites.length === 0 ? (
+                <p className="text-center text-secondary mt-8">You haven't saved any Hadiths yet.</p>
+            ) : (
+                <div className="space-y-6">
+                    {favorites.map(hadith => (
+                      <div key={hadith.id} className="bg-secondary rounded-xl p-4">
+                         <div className="flex justify-between items-center mb-2">
+                            <p className="font-bold accent-text">{hadith.collection.toUpperCase()} {hadith.hadith}</p>
+                            <button 
+                                onClick={() => removeFromFavorites(hadith.id)}
+                                className="text-red-500 hover:text-red-700 text-sm font-semibold"
+                            >
+                                Remove
+                            </button>
+                         </div>
+                         <p className="text-sm text-secondary mb-2">{hadith.bookName} - {hadith.chapterName}</p>
+                         <p className="text-primary leading-relaxed">{hadith.body}</p>
+                      </div>
+                    ))}
+                 </div>
+            )}
+        </>
+      )}
+
       {view === 'books' && selectedCollection && (
         <>
             <Header title={selectedCollection.title} onBack={goBack}/>
              <div className="space-y-3">
                 {selectedCollection.books.map(book => (
-                  <button key={book.book} onClick={() => handleBookSelect(book)} className="w-full bg-gray-100 dark:bg-[#1a4538] rounded-xl p-4 flex items-center justify-between text-left">
-                     <p className="font-bold text-lg text-gray-900 dark:text-white">{book.bookName}</p>
-                     <ChevronRightIcon className="w-6 h-6 text-gray-400" />
+                  <button key={book.book} onClick={() => handleBookSelect(book)} className="w-full bg-secondary rounded-xl p-4 flex items-center justify-between text-left">
+                     <p className="font-bold text-lg text-primary">{book.bookName}</p>
+                     <ChevronRightIcon className="w-6 h-6 text-secondary" />
                   </button>
                 ))}
              </div>
@@ -182,9 +225,9 @@ const Hadith: React.FC = () => {
             <Header title={selectedBook.bookName} onBack={goBack}/>
              <div className="space-y-3">
                 {selectedBook.chapters.map(chapter => (
-                  <button key={chapter.chapter} onClick={() => handleChapterSelect(chapter)} className="w-full bg-gray-100 dark:bg-[#1a4538] rounded-xl p-4 flex items-center justify-between text-left">
-                     <p className="text-md text-gray-900 dark:text-white">{chapter.chapterName}</p>
-                     <ChevronRightIcon className="w-6 h-6 text-gray-400" />
+                  <button key={chapter.chapter} onClick={() => handleChapterSelect(chapter)} className="w-full bg-secondary rounded-xl p-4 flex items-center justify-between text-left">
+                     <p className="text-md text-primary">{chapter.chapterName}</p>
+                     <ChevronRightIcon className="w-6 h-6 text-secondary" />
                   </button>
                 ))}
              </div>
@@ -196,14 +239,14 @@ const Hadith: React.FC = () => {
             <Header title={selectedChapter.chapterName} onBack={goBack}/>
              <div className="space-y-6">
                 {selectedChapter.hadiths.map(hadith => (
-                  <div key={hadith.hadith} className="bg-gray-100 dark:bg-[#1a4538] rounded-xl p-4">
+                  <div key={hadith.hadith} className="bg-secondary rounded-xl p-4">
                      <div className="flex justify-between items-center mb-2">
-                        <p className="font-bold text-green-500">{selectedCollection?.title} {hadith.hadith}</p>
+                        <p className="font-bold accent-text">{selectedCollection?.title} {hadith.hadith}</p>
                         <button onClick={() => toggleFavorite(hadith)}>
-                            {isFavorite(hadith) ? <FilledStarIcon className="w-6 h-6 text-yellow-400"/> : <StarIcon className="w-6 h-6 text-gray-400"/>}
+                            {isFavorite(hadith) ? <FilledStarIcon className="w-6 h-6 text-yellow-400"/> : <StarIcon className="w-6 h-6 text-secondary"/>}
                         </button>
                      </div>
-                     <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{hadith.body}</p>
+                     <p className="text-primary leading-relaxed">{hadith.body}</p>
                   </div>
                 ))}
              </div>
