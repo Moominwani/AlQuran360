@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, PrayerIcon, QuranIcon } from './icons/NavIcons';
+import { HomeIcon, PrayerIcon, QuranIcon, HadithIcon } from './icons/NavIcons';
 
 interface BottomNavProps {
   activePage: Page;
@@ -38,6 +38,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage }) => {
         <NavItem page={Page.Home} activePage={activePage} setActivePage={setActivePage} Icon={HomeIcon} label="Home" />
         <NavItem page={Page.Prayer} activePage={activePage} setActivePage={setActivePage} Icon={PrayerIcon} label="Prayer"/>
         <NavItem page={Page.Quran} activePage={activePage} setActivePage={setActivePage} Icon={QuranIcon} label="Quran" />
+        <NavItem page={Page.Hadith} activePage={activePage} setActivePage={setActivePage} Icon={HadithIcon} label="Hadith" />
       </div>
     </div>
   );

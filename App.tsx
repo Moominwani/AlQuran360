@@ -7,6 +7,7 @@ import SurahDetail from './pages/SurahDetail';
 import LocationManager from './components/LocationManager';
 import About from './pages/About';
 import Settings from './pages/Settings';
+import Prayer from './pages/Prayer';
 import Hadith from './pages/Hadith';
 
 const App: React.FC = () => {
@@ -46,9 +47,11 @@ const App: React.FC = () => {
       case Page.Home:
         return <Home onNavigate={changePage} onShowSettings={() => setFullPageView('settings')} onShowAbout={() => setFullPageView('about')} />;
       case Page.Prayer:
-        return <Hadith />;
+        return <Prayer />;
       case Page.Quran:
         return <Quran onSurahSelect={handleSurahSelect} />;
+      case Page.Hadith:
+        return <Hadith />;
       default:
         return <Home onNavigate={changePage} onShowSettings={() => setFullPageView('settings')} onShowAbout={() => setFullPageView('about')} />;
     }

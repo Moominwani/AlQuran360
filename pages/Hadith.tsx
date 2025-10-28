@@ -1,247 +1,344 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { PrayerData } from '../types';
-import LocationModal from '../components/LocationModal';
-import { ChevronLeftIcon, ChevronRightIcon, FajrIcon, SunriseIcon, DhuhrIcon, AsrIcon, MaghribIcon, IshaIcon, LocationIcon } from '../contexts/MiscIcons';
-import { useTimeFormat } from '../contexts/TimeFormatContext';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ChevronLeftIcon, StarIcon, FilledStarIcon } from '../components/icons/MiscIcons';
+import { CopyIcon, ShareIcon } from '../components/icons/PlayerIcons';
 
-const prayerOrder = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+// --- API Configuration ---
+const API_BASE = 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1';
 
-const prayerIcons: { [key: string]: React.ElementType } = {
-  Fajr: FajrIcon,
-  Sunrise: SunriseIcon,
-  Dhuhr: DhuhrIcon,
-  Asr: AsrIcon,
-  Maghrib: MaghribIcon,
-  Isha: IshaIcon,
+// --- Reusable Components ---
+const LoadingSpinner: React.FC = () => (
+    <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+);
+
+const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
+    <div className="p-4 my-4 text-center text-red-400 bg-red-500/10 rounded-lg">
+        <p className="font-semibold">An Error Occurred</p>
+        <p className="text-sm">{message}</p>
+    </div>
+);
+
+const PageHeader: React.FC<{ title: string; onBack?: () => void }> = ({ title, onBack }) => (
+    <header className="flex items-center mb-4 sticky top-0 bg-primary py-4 z-10">
+        {onBack && (
+            <button onClick={onBack} className="p-2 mr-2 rounded-full hover:bg-secondary">
+                <ChevronLeftIcon className="w-6 h-6" />
+            </button>
+        )}
+        <h1 className="text-2xl font-bold truncate">{title}</h1>
+    </header>
+);
+
+// --- API Fetch Hook ---
+const useFetchData = <T,>(url: string) => {
+    const [data, setData] = useState<T | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!url) return;
+        const fetchData = async () => {
+            setLoading(true);
+            setError(null);
+            setData(null);
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Request failed: ${response.status} ${response.statusText}. Please try again later.`);
+                }
+                const result = await response.json();
+                setData(result);
+            } catch (err) {
+                console.error("Fetch error:", err);
+                setError(err instanceof Error ? err.message : 'An unknown error occurred. Please check your network connection.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [url]);
+
+    return { data, loading, error };
 };
 
-const Prayer: React.FC = () => {
-    const [location, setLocation] = useState<{ city: string, latitude: number, longitude: number } | null>(null);
-    const [prayerData, setPrayerData] = useState<PrayerData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [currentTime, setCurrentTime] = useState(new Date());
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-    const { timeFormat } = useTimeFormat();
 
-    const formatPrayerTime = (time24: string): string => {
-        if (timeFormat === '24h' || !time24) {
-            return time24 || '';
+// --- View Components ---
+
+const collectionImageMap: { [key: string]: string } = {
+  bukhari: 'https://assets.sunnah.com/images/books/1.png',
+  muslim: 'https://assets.sunnah.com/images/books/2.png',
+  abudawud: 'https://assets.sunnah.com/images/books/3.png',
+  tirmidhi: 'https://assets.sunnah.com/images/books/4.png',
+  nasai: 'https://assets.sunnah.com/images/books/5.png',
+  ibnmajah: 'https://assets.sunnah.com/images/books/6.png',
+  malik: 'https://assets.sunnah.com/images/books/7.png',
+  riyadussalihin: 'https://assets.sunnah.com/images/books/10.png',
+  adab: 'https://assets.sunnah.com/images/books/46.png',
+  bulugh: 'https://assets.sunnah.com/images/books/48.png',
+  forty: 'https://assets.sunnah.com/images/books/41.png',
+  nawawi: 'https://assets.sunnah.com/images/books/41.png',
+  shamail: 'https://assets.sunnah.com/images/books/47.png',
+  qudsi: 'https://assets.sunnah.com/images/books/42.png',
+};
+
+const CollectionsList: React.FC<{ onSelect: (name: string, title: string) => void }> = ({ onSelect }) => {
+    const { data: editions, loading, error } = useFetchData<any>(`${API_BASE}/editions.json`);
+
+    const englishEditions = useMemo(() => {
+        if (!editions) {
+            return [];
         }
-        const [hour, minute] = time24.split(':');
-        let h = parseInt(hour, 10);
-        const period = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        return `${h}:${minute} ${period}`;
-    };
+        // The API is expected to return an array, but we handle objects just in case.
+        const editionsArray = Array.isArray(editions) ? editions : Object.values(editions);
+        return editionsArray.filter(edition => edition && typeof edition === 'object' && edition.language === 'en');
+    }, [editions]);
 
-    useEffect(() => {
-        const savedLocation = localStorage.getItem('userLocation');
-        if (savedLocation) {
-            setLocation(JSON.parse(savedLocation));
-        } else {
-            setError("Location not set. Please set a location.");
-            setLoading(false);
-        }
-    }, []);
-
-    const handleLocationUpdate = (newLocation: { city: string, latitude: number, longitude: number }) => {
-        localStorage.setItem('userLocation', JSON.stringify(newLocation));
-        setLocation(newLocation);
-        setIsLocationModalOpen(false);
-        setPrayerData(null);
-        setLoading(true);
-    };
-
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
-
-    const handlePrevDay = () => {
-        setPrayerData(null);
-        setLoading(true);
-        setCurrentDate(prevDate => {
-            const newDate = new Date(prevDate);
-            newDate.setDate(newDate.getDate() - 1);
-            return newDate;
-        });
-    };
-
-    const handleNextDay = () => {
-        setPrayerData(null);
-        setLoading(true);
-        setCurrentDate(prevDate => {
-            const newDate = new Date(prevDate);
-            newDate.setDate(newDate.getDate() + 1);
-            return newDate;
-        });
-    };
-
-    useEffect(() => {
-        if (location) {
-            const fetchPrayerTimes = async () => {
-                setLoading(true);
-                const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${currentDate.getFullYear()}`;
-                try {
-                    const response = await fetch(`https://api.aladhan.com/v1/timings/${formattedDate}?latitude=${location.latitude}&longitude=${location.longitude}&method=3`);
-                    if (!response.ok) throw new Error('Failed to fetch prayer times.');
-                    const data = await response.json();
-                    if (data.code === 200) {
-                        setPrayerData(data.data);
-                        setError(null);
-                    } else {
-                        setError(data.status);
-                    }
-                } catch (err) {
-                    setError(err instanceof Error ? err.message : 'An unknown error occurred.');
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchPrayerTimes();
-        }
-    }, [location, currentDate]);
-
-    const { nextPrayer, timeToNextPrayer, isAfterIsha, passedPrayerNames, isToday } = useMemo(() => {
-        if (!prayerData) return { nextPrayer: null, timeToNextPrayer: null, isAfterIsha: false, passedPrayerNames: [], isToday: false };
-
-        const now = new Date();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const viewingDate = new Date(currentDate);
-        viewingDate.setHours(0, 0, 0, 0);
-
-        const viewingToday = today.getTime() === viewingDate.getTime();
-
-        if (!viewingToday) {
-            const firstPrayerName = prayerOrder[0]; // Fajr
-            return {
-                nextPrayer: { name: firstPrayerName, time: new Date() },
-                timeToNextPrayer: null,
-                isAfterIsha: false,
-                passedPrayerNames: [],
-                isToday: false,
-            };
-        }
-
-        const todayStr = now.toISOString().slice(0, 10);
-        const prayerTimesToday = prayerOrder.map(name => ({
-            name,
-            time: new Date(`${todayStr} ${prayerData.timings[name]}`),
-        }));
-
-        let nextPrayerIndex = prayerTimesToday.findIndex(p => p.time > now);
-        let afterIsha = false;
-
-        if (nextPrayerIndex === -1) {
-            nextPrayerIndex = 0;
-            afterIsha = true;
-        }
-
-        const passed = afterIsha ? prayerOrder : prayerOrder.slice(0, nextPrayerIndex);
-        const nextPrayerDetails = prayerTimesToday[nextPrayerIndex];
-        let nextPrayerTime = nextPrayerDetails.time;
-
-        if (afterIsha) {
-            const tomorrow = new Date(now);
-            tomorrow.setDate(now.getDate() + 1);
-            nextPrayerTime = new Date(`${tomorrow.toISOString().slice(0, 10)} ${prayerData.timings.Fajr}`);
-        }
-
-        const diff = nextPrayerTime.getTime() - now.getTime();
-        if (diff < 0) return { nextPrayer: nextPrayerDetails, timeToNextPrayer: null, isAfterIsha: afterIsha, passedPrayerNames: passed, isToday: true };
-        
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff / 1000 / 60) % 60);
-        const seconds = Math.floor((diff / 1000) % 60);
-
-        return {
-            nextPrayer: nextPrayerDetails,
-            timeToNextPrayer: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
-            isAfterIsha: afterIsha,
-            passedPrayerNames: passed,
-            isToday: true,
-        };
-    }, [prayerData, currentTime, currentDate]);
-    
-    if (loading || (!prayerData && !error)) return <div className="flex items-center justify-center h-screen"><p>Loading prayer times...</p></div>;
-    if (error && !location) return <div className="flex flex-col items-center justify-center h-screen"><p className="text-red-400">Error: {error}</p><button onClick={() => setIsLocationModalOpen(true)} className="mt-4 px-4 py-2 bg-green-500 text-white rounded">Set Location</button></div>;
-    
     return (
-        <div className="px-4 flex flex-col h-screen bg-primary text-primary overflow-hidden">
-            {isLocationModalOpen && <LocationModal onClose={() => setIsLocationModalOpen(false)} onLocationSet={handleLocationUpdate} />}
-
-            <header className="pt-4">
-                <div className="text-center">
-                    <h1 className="text-2xl font-bold">Prayer Times</h1>
-                    <button onClick={() => setIsLocationModalOpen(true)} className="flex items-center justify-center space-x-1 text-secondary mx-auto">
-                        <LocationIcon className="w-4 h-4" />
-                        <span>{location?.city || '...'}</span>
-                    </button>
-                </div>
-
-                <div className="flex items-center justify-between text-sm my-4">
-                    <button onClick={handlePrevDay} className="p-2 rounded-full hover:bg-secondary"><ChevronLeftIcon className="w-6 h-6 text-secondary" /></button>
-                    <div className="text-center">
-                        <span className="font-semibold">{prayerData?.date.readable}</span>
-                        <p className="text-secondary text-xs">{prayerData?.date.hijri.day} {prayerData?.date.hijri.month.en}, {prayerData?.date.hijri.year} AH</p>
-                    </div>
-                    <button onClick={handleNextDay} className="p-2 rounded-full hover:bg-secondary"><ChevronRightIcon className="w-6 h-6 text-secondary" /></button>
-                </div>
-            </header>
-
-            <main className="flex-grow flex items-center justify-center">
-                <div className="w-full max-w-sm bg-secondary rounded-3xl p-4 text-center shadow-lg animate-fade-in-up border border-primary">
-                    <p className="text-lg font-semibold accent-text">{isToday ? "Next Prayer" : prayerData?.date.readable}</p>
-                    <p className="text-3xl font-bold my-1 text-primary">{nextPrayer?.name || '...'}</p>
-                    <p className="text-5xl font-mono tracking-tight text-primary">
-                        {prayerData && nextPrayer ? formatPrayerTime(prayerData.timings[nextPrayer.name]) : '--:--'}
-                    </p>
-                    <p className="text-secondary mt-1 h-5">
-                        {timeToNextPrayer ? `in ${timeToNextPrayer}` : ''}
-                    </p>
-                </div>
-            </main>
-
-            <footer className="flex-shrink-0 pb-4">
-                <div className="space-y-2">
-                    {prayerOrder.filter(p => p !== 'Sunrise').map(prayer => {
-                        const PrayerIcon = prayerIcons[prayer];
-                        const isNext = prayer === nextPrayer?.name && !isAfterIsha && isToday;
-                        const hasPassed = passedPrayerNames.includes(prayer) && isToday && !isNext;
-
-                        let cardClass = 'bg-secondary border-black';
-                        let textClass = 'text-primary';
-                        let timeClass = 'text-secondary';
-                        let iconClass = 'text-secondary';
-
-                        if (isNext) {
-                            cardClass = 'bg-green-500 border-green-600 shadow-lg';
-                            textClass = 'text-white';
-                            timeClass = 'text-white/90';
-                            iconClass = 'text-white';
-                        } else if (hasPassed) {
-                            cardClass = 'bg-secondary border-black opacity-60';
-                        }
-
-                        return (
-                            <div key={prayer} className={`flex items-center justify-between p-3 rounded-xl border transition-all duration-300 ${cardClass}`}>
-                                <div className="flex items-center space-x-4">
-                                    <PrayerIcon className={`w-6 h-6 transition-colors ${iconClass}`} />
-                                    <p className={`font-semibold text-lg transition-colors ${textClass}`}>{prayer}</p>
-                                </div>
-                                <p className={`font-mono text-lg transition-colors ${timeClass}`}>
-                                    {prayerData ? formatPrayerTime(prayerData.timings[prayer]) : '--:--'}
-                                </p>
+        <div className="animate-fade-in">
+            <PageHeader title="Hadith Collections" />
+            {loading && <LoadingSpinner />}
+            {error && <ErrorMessage message={error} />}
+            <div className="space-y-4">
+                {englishEditions?.map(edition => {
+                    const collectionKey = edition.name.replace('eng-', '');
+                    const imageUrl = collectionImageMap[collectionKey] || 'https://assets.sunnah.com/images/books/placeholder.png';
+                    const title = edition.collection?.[0]?.title || edition.name;
+                    return (
+                        <div key={edition.name} onClick={() => onSelect(edition.name, title)} className="w-full bg-secondary rounded-xl p-4 flex items-center space-x-4 text-left cursor-pointer transition-transform transform hover:scale-[1.02]">
+                            <img src={imageUrl} alt={title} className="w-20 h-28 object-cover rounded-md flex-shrink-0 bg-tertiary" onError={(e) => { e.currentTarget.src = 'https://assets.sunnah.com/images/books/placeholder.png'; }} />
+                            <div className="flex-grow">
+                                <p className="font-bold text-lg text-primary">{title}</p>
+                                <p className="text-sm text-secondary mt-1">{edition.author}</p>
                             </div>
-                        );
-                    })}
-                </div>
-            </footer>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 };
 
-export default Prayer;
+const SectionsList: React.FC<{ collectionName: string; collectionTitle: string; onSelect: (sectionNumber: string, sectionName: string) => void; onBack: () => void }> = ({ collectionName, collectionTitle, onSelect, onBack }) => {
+    const { data: info, loading, error } = useFetchData<any>(`${API_BASE}/info.json`);
+
+    const collectionInfo = useMemo(() => {
+        return info ? info[collectionName]?.metadata : null;
+    }, [info, collectionName]);
+
+    return (
+        <div className="animate-fade-in">
+            <PageHeader title={collectionTitle} onBack={onBack} />
+            {loading && <LoadingSpinner />}
+            {error && <ErrorMessage message={error} />}
+            {collectionInfo && (
+                <div>
+                    {Object.entries(collectionInfo.sectionDetails).map(([number, name]) => {
+                        const range = collectionInfo.sections[number];
+                        return (
+                            <button key={number} onClick={() => onSelect(number, name as string)} className="w-full flex items-center justify-between text-left py-4 border-b border-primary/20">
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex-shrink-0 w-8 h-8 bg-tertiary rounded-full flex items-center justify-center font-mono text-sm font-bold text-primary">
+                                        {number}
+                                    </div>
+                                    <p className="font-semibold text-primary">{name as string}</p>
+                                </div>
+                                {range && <p className="font-mono text-sm text-secondary">{range.from}-{range.to}</p>}
+                            </button>
+                        )
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
+interface MergedHadith {
+    hadithnumber: number;
+    arabicnumber: number;
+    englishText: string;
+    arabicText: string;
+    grades: any[];
+}
+
+const HadithCard: React.FC<{ hadith: MergedHadith; collectionName: string; isFavorite: boolean; onFavorite: () => void; }> = ({ hadith, collectionName, isFavorite, onFavorite }) => {
+    
+    const handleCopy = () => {
+        const textToCopy = `${hadith.arabicText}\n\n${hadith.englishText}\n\n[${collectionName.replace('eng-', '')} ${hadith.hadithnumber}]`;
+        navigator.clipboard.writeText(textToCopy);
+    };
+
+    const handleShare = () => {
+        if (navigator.share) {
+            navigator.share({
+                title: `Hadith: ${collectionName.replace('eng-', '')} ${hadith.hadithnumber}`,
+                text: `${hadith.englishText}\n\n[${collectionName.replace('eng-', '')} ${hadith.hadithnumber}]`,
+                url: window.location.href,
+            });
+        }
+    };
+    
+    return (
+        <div className="bg-secondary rounded-xl p-4 flex flex-col">
+            <div className="flex items-center mb-4">
+                <div className="w-8 h-8 flex-shrink-0 bg-tertiary text-primary rounded-full flex items-center justify-center font-bold text-sm">
+                    {hadith.hadithnumber}
+                </div>
+            </div>
+
+            <p className="text-right font-amiri text-2xl leading-loose text-primary mb-4">
+                {hadith.arabicText}
+            </p>
+            <p className="text-primary leading-relaxed">
+                {hadith.englishText}
+            </p>
+
+            <div className="border-t border-primary/20 mt-4 pt-3 flex justify-around items-center">
+                <button onClick={handleCopy} className="flex flex-col items-center text-secondary hover:text-primary transition-colors p-2">
+                    <CopyIcon className="w-5 h-5 mb-1" />
+                    <span className="text-xs">Copy</span>
+                </button>
+                <button onClick={onFavorite} className="flex flex-col items-center text-secondary hover:text-primary transition-colors p-2">
+                    {isFavorite ? <FilledStarIcon className="w-5 h-5 mb-1 text-yellow-400" /> : <StarIcon className="w-5 h-5 mb-1" />}
+                    <span className="text-xs">Favorite</span>
+                </button>
+                <button onClick={handleShare} className="flex flex-col items-center text-secondary hover:text-primary transition-colors p-2">
+                    <ShareIcon className="w-5 h-5 mb-1" />
+                    <span className="text-xs">Share</span>
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const HadithsList: React.FC<{ collectionName: string; sectionNumber: string; sectionName: string; onBack: () => void }> = ({ collectionName, sectionNumber, sectionName, onBack }) => {
+    const [hadiths, setHadiths] = useState<MergedHadith[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [favorites, setFavorites] = useState<string[]>([]);
+    const favoriteKey = 'hadith_favorites';
+
+    useEffect(() => {
+        const savedFavorites = localStorage.getItem(favoriteKey);
+        if (savedFavorites) {
+            setFavorites(JSON.parse(savedFavorites));
+        }
+    }, []);
+
+    const toggleFavorite = (hadithId: string) => {
+        const newFavorites = favorites.includes(hadithId)
+            ? favorites.filter(id => id !== hadithId)
+            : [...favorites, hadithId];
+        setFavorites(newFavorites);
+        localStorage.setItem(favoriteKey, JSON.stringify(newFavorites));
+    };
+
+    const fetchHadiths = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        setHadiths([]);
+        const engUrl = `${API_BASE}/editions/${collectionName}/sections/${sectionNumber}.json`;
+        const araUrl = `${API_BASE}/editions/${collectionName.replace('eng-', 'ara-')}/sections/${sectionNumber}.json`;
+        try {
+            const [engResponse, araResponse] = await Promise.all([fetch(engUrl), fetch(araUrl)]);
+            
+            if (!engResponse.ok) throw new Error(`Failed to fetch English Hadiths: ${engResponse.statusText}`);
+            if (!araResponse.ok) throw new Error(`Failed to fetch Arabic Hadiths: ${araResponse.statusText}`);
+            
+            const engData = await engResponse.json();
+            const araData = await araResponse.json();
+
+            const araHadithsMap = new Map(araData.hadiths.map((h: any) => [h.hadithnumber, h]));
+
+            const mergedHadiths: MergedHadith[] = engData.hadiths.map((engHadith: any) => ({
+                hadithnumber: engHadith.hadithnumber,
+                arabicnumber: engHadith.arabicnumber,
+                englishText: engHadith.text,
+                // Fix: Cast the result of `araHadithsMap.get` to `any` to resolve the TypeScript error.
+                arabicText: (araHadithsMap.get(engHadith.hadithnumber) as any)?.text || 'Arabic text not available.',
+                grades: engHadith.grades,
+            }));
+
+            setHadiths(mergedHadiths);
+
+        } catch (err) {
+            console.error("Fetch Hadiths error:", err);
+            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        } finally {
+            setLoading(false);
+        }
+    }, [collectionName, sectionNumber]);
+    
+    useEffect(() => {
+        fetchHadiths();
+    }, [fetchHadiths]);
+
+    return (
+        <div className="animate-fade-in">
+            <PageHeader title={sectionName} onBack={onBack} />
+            {loading && <LoadingSpinner />}
+            {error && <ErrorMessage message={error} />}
+            <div className="space-y-6">
+                {hadiths.map(hadith => {
+                    const hadithId = `${collectionName}:${hadith.hadithnumber}`;
+                    return (
+                        <HadithCard
+                            key={hadithId}
+                            hadith={hadith}
+                            collectionName={collectionName}
+                            isFavorite={favorites.includes(hadithId)}
+                            onFavorite={() => toggleFavorite(hadithId)}
+                        />
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+
+const Hadith: React.FC = () => {
+    const [view, setView] = useState<'collections' | 'sections' | 'hadiths'>('collections');
+    const [selectedCollection, setSelectedCollection] = useState<{ name: string; title: string } | null>(null);
+    const [selectedSection, setSelectedSection] = useState<{ number: string; name: string } | null>(null);
+
+    const handleCollectionSelect = (name: string, title: string) => {
+        setSelectedCollection({ name, title });
+        setView('sections');
+    };
+
+    const handleSectionSelect = (number: string, name: string) => {
+        setSelectedSection({ number, name });
+        setView('hadiths');
+    };
+    
+    const handleBack = () => {
+        if (view === 'hadiths') {
+            setView('sections');
+            setSelectedSection(null);
+        } else if (view === 'sections') {
+            setView('collections');
+            setSelectedCollection(null);
+        }
+    }
+
+    const renderContent = () => {
+        switch (view) {
+            case 'hadiths':
+                return <HadithsList collectionName={selectedCollection!.name} sectionNumber={selectedSection!.number} sectionName={selectedSection!.name} onBack={handleBack} />;
+            case 'sections':
+                return <SectionsList collectionName={selectedCollection!.name} collectionTitle={selectedCollection!.title} onSelect={handleSectionSelect} onBack={handleBack} />;
+            case 'collections':
+            default:
+                return <CollectionsList onSelect={handleCollectionSelect} />;
+        }
+    };
+    
+    return (
+        <div className="p-4">
+            {renderContent()}
+        </div>
+    );
+};
+
+export default Hadith;
