@@ -7,17 +7,14 @@ interface LocationManagerProps {
 }
 
 const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
-    const [permissionRequested, setPermissionRequested] = useState(false);
     const [showManualModal, setShowManualModal] = useState(false);
-    const { latitude, longitude, error, loading } = useGeolocation();
+    const [isLocating, setIsLocating] = useState(false);
 
     const handleAllow = () => {
-        // This will trigger the browser's native permission prompt
-        // The useGeolocation hook will handle the result
+        setIsLocating(true);
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords;
-                // Reverse geocode to get city name
                 try {
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                     const data = await response.json();
@@ -25,12 +22,14 @@ const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
                     localStorage.setItem('userLocation', JSON.stringify({ city, latitude, longitude }));
                     onLocationSet();
                 } catch (e) {
-                     // Fallback if reverse geocoding fails
                     localStorage.setItem('userLocation', JSON.stringify({ city: 'Current Location', latitude, longitude }));
                     onLocationSet();
+                } finally {
+                    setIsLocating(false);
                 }
             },
-            () => { // Error callback
+            () => { 
+                setIsLocating(false);
                 setShowManualModal(true);
             }
         );
@@ -50,6 +49,16 @@ const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
         return <LocationModal onLocationSet={handleManualLocationSet} onClose={() => { /* Cannot close until location is set */ }} />;
     }
 
+    if (isLocating) {
+        return (
+            <div className="bg-[#143d31] min-h-screen flex flex-col items-center justify-center p-8 text-white text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                <h2 className="text-2xl font-semibold">Getting Location</h2>
+                <p className="text-gray-300">Please wait a moment...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-[#143d31] min-h-screen flex flex-col items-center justify-center p-8 text-white text-center">
             <h1 className="text-4xl font-bold mb-4">Welcome to AlQuran360</h1>
@@ -66,7 +75,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
                     onClick={handleDeny}
                     className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
                 >
-                    Deny
+                    Set Manually
                 </button>
             </div>
             

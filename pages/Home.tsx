@@ -1,44 +1,46 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import TopBar from '../components/TopBar';
 import LocationModal from '../components/LocationModal';
-import { PrayerData } from '../types';
-import { ChevronLeftIcon, ChevronRightIcon, FajrIcon, SunriseIcon, DhuhrIcon, AsrIcon, MaghribIcon, IshaIcon } from '../contexts/MiscIcons';
+import { Page, PrayerData } from '../types';
 import { useTimeFormat } from '../contexts/TimeFormatContext';
+import { QuranIcon } from '../components/icons/NavIcons';
+import { AzkarIcon, NearbyMosqueIcon, QiblaCompassIcon, TasbihIcon, PrayerManIcon, LocationIcon } from '../components/icons/MiscIcons';
 
 const prayerOrder = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
-const prayerIcons: { [key: string]: React.ElementType } = {
-  Fajr: FajrIcon,
-  Sunrise: SunriseIcon,
-  Dhuhr: DhuhrIcon,
-  Asr: AsrIcon,
-  Maghrib: MaghribIcon,
-  Isha: IshaIcon,
-};
-
 interface HomeProps {
-    onOpenAbout: () => void;
-    onOpenSettings: () => void;
+    onNavigate: (page: Page) => void;
+    onShowSettings: () => void;
+    onShowAbout: () => void;
 }
 
-const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
+const QuickActionButton: React.FC<{ Icon: React.ElementType; label: string; onClick?: () => void }> = ({ Icon, label, onClick }) => (
+    <button onClick={onClick} className="flex flex-col items-center space-y-2 text-primary">
+        <div className="w-16 h-16 bg-secondary rounded-2xl flex items-center justify-center">
+            <Icon className="w-8 h-8 accent-text" />
+        </div>
+        <span className="text-sm font-medium">{label}</span>
+    </button>
+);
+
+
+const Home: React.FC<HomeProps> = ({ onNavigate, onShowSettings, onShowAbout }) => {
     const [location, setLocation] = useState<{ city: string, latitude: number, longitude: number } | null>(null);
     const [prayerData, setPrayerData] = useState<PrayerData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { timeFormat } = useTimeFormat();
 
     const formatPrayerTime = (time24: string): string => {
-        if (timeFormat === '24h' || !time24) {
-            return time24 || '';
-        }
+        if (timeFormat === '24h' || !time24) return time24 || '';
         const [hour, minute] = time24.split(':');
         let h = parseInt(hour, 10);
         const period = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12; // Convert 0 to 12 for 12 AM
-        return `${String(h).padStart(2, '0')}:${minute} ${period}`;
+        h = h % 12 || 12;
+        return `${h}:${minute}${period}`;
     };
 
     useEffect(() => {
@@ -46,7 +48,7 @@ const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
         if (savedLocation) {
             setLocation(JSON.parse(savedLocation));
         } else {
-            setError("Location not set. Please set a location.");
+            setError("Location not set.");
             setLoading(false);
         }
     }, []);
@@ -55,7 +57,6 @@ const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
         localStorage.setItem('userLocation', JSON.stringify(newLocation));
         setLocation(newLocation);
         setIsLocationModalOpen(false);
-        // Refetch prayer times for new location
         setPrayerData(null);
         setLoading(true);
     };
@@ -69,18 +70,15 @@ const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
         if (location) {
             const fetchPrayerTimes = async () => {
                 setLoading(true);
+                const date = new Date();
+                const formattedDate = `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
                 try {
-                    const response = await fetch(`https://api.aladhan.com/v1/timings?latitude=${location.latitude}&longitude=${location.longitude}&method=2`);
+                    const response = await fetch(`https://api.aladhan.com/v1/timings/${formattedDate}?latitude=${location.latitude}&longitude=${location.longitude}&method=3`);
                     if (!response.ok) throw new Error('Failed to fetch prayer times.');
                     const data = await response.json();
-                    if (data.code === 200) {
-                        setPrayerData(data.data);
-                        setError(null);
-                    } else {
-                        setError(data.status);
-                    }
+                    setPrayerData(data.code === 200 ? data.data : null);
                 } catch (err) {
-                    setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+                    setError(err instanceof Error ? err.message : 'An error occurred.');
                 } finally {
                     setLoading(false);
                 }
@@ -89,106 +87,99 @@ const Home: React.FC<HomeProps> = ({ onOpenAbout, onOpenSettings }) => {
         }
     }, [location]);
 
-    const { currentPrayer, nextPrayer, timeToNextPrayer } = useMemo(() => {
-        if (!prayerData) return { currentPrayer: null, nextPrayer: null, timeToNextPrayer: '00:00:00' };
-
+    const { timeToNextPrayer, prayerForMainDisplay } = useMemo(() => {
+        if (!prayerData) return { timeToNextPrayer: null, prayerForMainDisplay: null };
         const now = new Date();
-        let nextPrayerName: string | null = null;
-        let currentPrayerName: string | null = null;
-        let nextPrayerTime: Date | null = null;
-        
         const todayStr = now.toISOString().slice(0, 10);
+        const prayerTimesToday = prayerOrder.map(name => ({
+            name,
+            time: new Date(`${todayStr} ${prayerData.timings[name]}`),
+        }));
 
-        const sortedPrayers = prayerOrder
-            .map(name => ({ name, time: new Date(`${todayStr} ${prayerData.timings[name]}`) }))
-            .sort((a, b) => a.time.getTime() - b.time.getTime());
-
-        for (let i = 0; i < sortedPrayers.length; i++) {
-            if (sortedPrayers[i].time > now) {
-                nextPrayerName = sortedPrayers[i].name;
-                nextPrayerTime = sortedPrayers[i].time;
-                currentPrayerName = i > 0 ? sortedPrayers[i-1].name : sortedPrayers[sortedPrayers.length-1].name;
-                break;
-            }
+        let nextPrayerIndex = prayerTimesToday.findIndex(p => p.time > now);
+        let isAfterIsha = false;
+        if (nextPrayerIndex === -1) {
+            nextPrayerIndex = 0;
+            isAfterIsha = true;
         }
+        
+        const nextPrayer = prayerTimesToday[nextPrayerIndex];
+        let nextPrayerTime = nextPrayer.time;
 
-        if (!nextPrayerName) { // After Isha, next prayer is Fajr of next day
-            nextPrayerName = 'Fajr';
+        if (isAfterIsha) {
             const tomorrow = new Date(now);
             tomorrow.setDate(now.getDate() + 1);
-            const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-            nextPrayerTime = new Date(`${tomorrowStr} ${prayerData.timings.Fajr}`);
-            currentPrayerName = 'Isha';
+            nextPrayerTime = new Date(`${tomorrow.toISOString().slice(0, 10)} ${prayerData.timings.Fajr}`);
         }
-         
-        let diff = (nextPrayerTime ? nextPrayerTime.getTime() - now.getTime() : 0);
-        const hours = Math.floor(diff / (1000 * 60 * 60)).toString().padStart(2, '0');
-        diff %= (1000 * 60 * 60);
-        const minutes = Math.floor(diff / (1000 * 60)).toString().padStart(2, '0');
-        diff %= (1000 * 60);
-        const seconds = Math.floor(diff / 1000).toString().padStart(2, '0');
+
+        let diff = nextPrayerTime.getTime() - now.getTime();
+        const minutes = Math.floor((diff / 1000 / 60) % 60).toString().padStart(2, '0');
+        const seconds = Math.floor((diff / 1000) % 60).toString().padStart(2, '0');
 
         return {
-            currentPrayer: currentPrayerName,
-            nextPrayer: nextPrayerName,
-            timeToNextPrayer: `${hours}:${minutes}:${seconds}`,
+            timeToNextPrayer: `${minutes}:${seconds}`,
+            prayerForMainDisplay: nextPrayer.name
         };
     }, [prayerData, currentTime]);
-    
-    if (loading) return <div className="flex items-center justify-center h-screen"><p>Loading prayer times...</p></div>;
-    if (error && !location) return <div className="flex flex-col items-center justify-center h-screen"><p className="text-red-400">Error: {error}</p><button onClick={() => setIsLocationModalOpen(true)} className="mt-4 px-4 py-2 bg-green-500 text-white rounded">Set Location</button></div>;
-    
-    const mainPrayerTimeFull = prayerData && currentPrayer ? formatPrayerTime(prayerData.timings[currentPrayer]) : '00:00';
-    const [mainTime, mainPeriod] = mainPrayerTimeFull.split(' ');
-    const [mainHour, mainMinute] = mainTime.split(':');
+
+    const mainPrayerTime = prayerData && prayerForMainDisplay ? formatPrayerTime(prayerData.timings[prayerForMainDisplay]) : '--:--';
 
     return (
-        <div className="p-4">
+        <div className="pb-8 relative">
             <TopBar 
-                location={location?.city || "Set Location"} 
-                onLocationClick={() => setIsLocationModalOpen(true)}
-                onOpenAbout={onOpenAbout}
-                onOpenSettings={onOpenSettings}
+              title="AlQuran360"
+              onMenuClick={() => setIsMenuOpen(prev => !prev)}
             />
+            
+            <div className="px-4 pt-2 pb-3">
+                 <button 
+                    onClick={() => setIsLocationModalOpen(true)} 
+                    className="flex items-center space-x-1 text-secondary hover:text-primary transition-colors duration-200"
+                >
+                    <LocationIcon className="w-4 h-4" />
+                    <span className="font-medium text-sm">{location?.city || 'Set Location'}</span>
+                 </button>
+            </div>
+            
+            {isMenuOpen && (
+                 <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)}></div>
+                    <div className="absolute top-16 right-4 w-48 bg-secondary rounded-lg shadow-lg z-20 animate-fade-in border border-primary">
+                        <button onClick={() => { onShowSettings(); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-primary hover:bg-tertiary rounded-t-lg">Settings</button>
+                        <button onClick={() => { onShowAbout(); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-primary hover:bg-tertiary rounded-b-lg">About</button>
+                    </div>
+                 </>
+            )}
             
             {isLocationModalOpen && <LocationModal onClose={() => setIsLocationModalOpen(false)} onLocationSet={handleLocationUpdate} />}
 
-            <div className="text-center my-8">
-                <h2 className="text-4xl font-bold">{currentPrayer || 'Loading...'}</h2>
-                <p className="text-8xl font-light tracking-tighter my-2">
-                    {mainHour}:
-                    <span className="font-bold">{mainMinute}</span>
-                    {mainPeriod && <span className="text-5xl align-top ml-2">{mainPeriod}</span>}
-                </p>
-                <p className="text-secondary">Next prayer in {timeToNextPrayer}</p>
-            </div>
-
-            <div className="flex items-center justify-between text-sm my-6">
-                <ChevronLeftIcon className="w-6 h-6 text-secondary" />
-                <div>
-                    <span className="font-semibold">{prayerData?.date.readable}</span>
-                    <span className="text-secondary"> • {prayerData?.date.hijri.day} {prayerData?.date.hijri.month.en}, {prayerData?.date.hijri.year} AH</span>
-                </div>
-                <ChevronRightIcon className="w-6 h-6 text-secondary" />
-            </div>
-
-            <div className="bg-secondary rounded-2xl p-4 space-y-2">
-                {prayerOrder.map(prayer => {
-                    const PrayerIcon = prayerIcons[prayer];
-                    const isActive = prayer === currentPrayer;
-                    return (
-                        <div key={prayer} className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? 'bg-tertiary accent-border border' : ''}`}>
-                            <div className="flex items-center space-x-4">
-                                <PrayerIcon className={`w-5 h-5 ${isActive ? 'accent-text' : 'text-secondary'}`} />
-                                <span className="font-medium">{prayer}</span>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                                <span className="font-mono text-lg">{prayerData ? formatPrayerTime(prayerData.timings[prayer]) : ''}</span>
-                                <div className="w-5 h-5 border-2 border-secondary rounded"></div>
-                            </div>
+            <div className="px-4 space-y-6">
+                <button 
+                    onClick={() => onNavigate(Page.Prayer)}
+                    className="w-full text-left rounded-2xl bg-gradient-to-br from-green-500 to-teal-500 text-white p-6 shadow-lg relative overflow-hidden animate-fade-in-up">
+                    <div className="flex justify-between items-start">
+                        <p className="font-medium text-sm">{prayerData?.date.hijri.day} {prayerData?.date.hijri.month.en}, {prayerData?.date.hijri.year} AH</p>
+                    </div>
+                    <div className="my-4">
+                        <p className="text-xl font-semibold">{prayerForMainDisplay || '...'}</p>
+                        <p className="text-6xl font-bold tracking-tight">{mainPrayerTime}</p>
+                    </div>
+                    <div className="flex justify-between items-end">
+                        <div>
+                            {timeToNextPrayer && <p className="text-sm opacity-90">Next prayer in {timeToNextPrayer}</p>}
+                            <p className="text-sm font-semibold mt-2">Tap to view more prayer times</p>
                         </div>
-                    );
-                })}
+                    </div>
+                    <PrayerManIcon className="absolute -bottom-4 -right-2 w-36 h-36 opacity-20" />
+                </button>
+
+                <div className="grid grid-cols-5 gap-2 text-center">
+                    <QuickActionButton Icon={QuranIcon} label="Quran" onClick={() => onNavigate(Page.Quran)} />
+                    <QuickActionButton Icon={AzkarIcon} label="Azkar" />
+                    <QuickActionButton Icon={NearbyMosqueIcon} label="Nearby Mo" />
+                    <QuickActionButton Icon={QiblaCompassIcon} label="Qibla" />
+                    <QuickActionButton Icon={TasbihIcon} label="Tasbih" />
+                </div>
             </div>
         </div>
     );

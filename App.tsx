@@ -3,11 +3,11 @@ import { Page } from './types';
 import BottomNav from './components/BottomNav';
 import Home from './pages/Home';
 import Quran from './pages/Quran';
-import Qibla from './pages/Qibla';
 import SurahDetail from './pages/SurahDetail';
 import LocationManager from './components/LocationManager';
 import About from './pages/About';
 import Settings from './pages/Settings';
+import Hadith from './pages/Hadith';
 
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.Home);
@@ -44,13 +44,13 @@ const App: React.FC = () => {
 
     switch (activePage) {
       case Page.Home:
-        return <Home onOpenAbout={() => setFullPageView('about')} onOpenSettings={() => setFullPageView('settings')} />;
+        return <Home onNavigate={changePage} onShowSettings={() => setFullPageView('settings')} onShowAbout={() => setFullPageView('about')} />;
+      case Page.Prayer:
+        return <Hadith />;
       case Page.Quran:
         return <Quran onSurahSelect={handleSurahSelect} />;
-      case Page.Qibla:
-        return <Qibla />;
       default:
-        return <Home onOpenAbout={() => setFullPageView('about')} onOpenSettings={() => setFullPageView('settings')} />;
+        return <Home onNavigate={changePage} onShowSettings={() => setFullPageView('settings')} onShowAbout={() => setFullPageView('about')} />;
     }
   };
 

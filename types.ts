@@ -1,11 +1,11 @@
 export enum Page {
   Home = 'Home',
+  Prayer = 'Prayer',
   Quran = 'Quran',
-  Qibla = 'Qibla',
 }
 
 export interface PrayerTimes {
-  [key: string]: string;
+  [key:string]: string;
 }
 
 export interface PrayerData {

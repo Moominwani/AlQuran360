@@ -1,57 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { LocationIcon, MoreVerticalIcon } from '../contexts/MiscIcons';
+import React from 'react';
+import { MoreVerticalIcon } from './icons/MiscIcons';
 
 interface TopBarProps {
-    location: string;
-    onLocationClick: () => void;
-    onOpenAbout: () => void;
-    onOpenSettings: () => void;
+    title: string;
+    onMenuClick: () => void;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ location, onLocationClick, onOpenAbout, onOpenSettings }) => {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setIsMenuOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
-
+const TopBar: React.FC<TopBarProps> = ({ title, onMenuClick }) => {
     return (
-        <div className="flex items-center justify-between p-4 bg-transparent">
-            <button onClick={onLocationClick} className="flex items-center space-x-1 cursor-pointer">
-                <LocationIcon className="w-4 h-4 text-secondary" />
-                <span className="text-sm font-medium text-secondary">{location}</span>
+        <div className="sticky top-0 z-10 bg-primary flex items-center justify-between p-4 text-primary">
+            <h1 className="text-xl font-bold">{title}</h1>
+            <button onClick={onMenuClick} className="p-2 rounded-full hover:bg-secondary">
+                <MoreVerticalIcon className="w-6 h-6 text-primary" />
             </button>
-            <h1 className="text-xl font-bold text-primary">AlQuran360</h1>
-            <div className="relative" ref={menuRef}>
-                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-primary">
-                    <MoreVerticalIcon className="w-6 h-6" />
-                </button>
-                {isMenuOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-secondary rounded-lg shadow-lg py-1 z-20 border border-primary animate-fade-in-up">
-                        <button 
-                            onClick={() => { onOpenSettings(); setIsMenuOpen(false); }} 
-                            className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-tertiary transition-colors"
-                        >
-                            Settings
-                        </button>
-                        <button 
-                            onClick={() => { onOpenAbout(); setIsMenuOpen(false); }} 
-                            className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-tertiary transition-colors"
-                        >
-                            About
-                        </button>
-                    </div>
-                )}
-            </div>
         </div>
     );
 };
