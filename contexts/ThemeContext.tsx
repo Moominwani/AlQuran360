@@ -28,15 +28,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const systemThemeListener = (e: MediaQueryListEvent) => {
         if (theme === 'system') {
-            applyFinalTheme(e.matches ? 'lightsOut' : 'light');
+            applyFinalTheme(e.matches ? 'darkGrey' : 'light');
         }
     };
 
     if (theme === 'system') {
-        applyFinalTheme(mediaQuery.matches ? 'lightsOut' : 'light');
+        applyFinalTheme(mediaQuery.matches ? 'darkGrey' : 'light');
         mediaQuery.addEventListener('change', systemThemeListener);
     } else {
-        applyFinalTheme(theme);
+        applyFinalTheme(theme as 'light' | 'dim' | 'lightsOut' | 'darkGrey');
     }
     
     return () => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PrayerData } from '../types';
 import LocationModal from '../components/LocationModal';
-import { ChevronLeftIcon, ChevronRightIcon, FajrIcon, SunriseIcon, DhuhrIcon, AsrIcon, MaghribIcon, IshaIcon } from '../contexts/MiscIcons';
+import { ChevronLeftIcon, ChevronRightIcon, FajrIcon, SunriseIcon, DhuhrIcon, AsrIcon, MaghribIcon, IshaIcon, LocationIcon } from '../contexts/MiscIcons';
 import { useTimeFormat } from '../contexts/TimeFormatContext';
 
 const prayerOrder = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
@@ -32,8 +32,8 @@ const Prayer: React.FC = () => {
         const [hour, minute] = time24.split(':');
         let h = parseInt(hour, 10);
         const period = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12; // Convert 0 to 12 for 12 AM
-        return `${String(h).padStart(2, '0')}:${minute} ${period}`;
+        h = h % 12 || 12;
+        return `${h}:${minute} ${period}`;
     };
 
     useEffect(() => {
@@ -104,8 +104,8 @@ const Prayer: React.FC = () => {
         }
     }, [location, currentDate]);
 
-    const currentPrayer = useMemo(() => {
-        if (!prayerData) return null;
+    const { nextPrayer, timeToNextPrayer, isAfterIsha, passedPrayerNames, isToday } = useMemo(() => {
+        if (!prayerData) return { nextPrayer: null, timeToNextPrayer: null, isAfterIsha: false, passedPrayerNames: [], isToday: false };
 
         const now = new Date();
         const today = new Date();
@@ -113,7 +113,18 @@ const Prayer: React.FC = () => {
         const viewingDate = new Date(currentDate);
         viewingDate.setHours(0, 0, 0, 0);
 
-        if (today.getTime() !== viewingDate.getTime()) return null;
+        const viewingToday = today.getTime() === viewingDate.getTime();
+
+        if (!viewingToday) {
+            const firstPrayerName = prayerOrder[0]; // Fajr
+            return {
+                nextPrayer: { name: firstPrayerName, time: new Date() },
+                timeToNextPrayer: null,
+                isAfterIsha: false,
+                passedPrayerNames: [],
+                isToday: false,
+            };
+        }
 
         const todayStr = now.toISOString().slice(0, 10);
         const prayerTimesToday = prayerOrder.map(name => ({
@@ -122,51 +133,113 @@ const Prayer: React.FC = () => {
         }));
 
         let nextPrayerIndex = prayerTimesToday.findIndex(p => p.time > now);
-        
-        if (nextPrayerIndex === -1) { // After Isha
-            return 'Isha';
-        }
-        return nextPrayerIndex > 0 ? prayerTimesToday[nextPrayerIndex - 1].name : 'Isha';
+        let afterIsha = false;
 
+        if (nextPrayerIndex === -1) {
+            nextPrayerIndex = 0;
+            afterIsha = true;
+        }
+
+        const passed = afterIsha ? prayerOrder : prayerOrder.slice(0, nextPrayerIndex);
+        const nextPrayerDetails = prayerTimesToday[nextPrayerIndex];
+        let nextPrayerTime = nextPrayerDetails.time;
+
+        if (afterIsha) {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(now.getDate() + 1);
+            nextPrayerTime = new Date(`${tomorrow.toISOString().slice(0, 10)} ${prayerData.timings.Fajr}`);
+        }
+
+        const diff = nextPrayerTime.getTime() - now.getTime();
+        if (diff < 0) return { nextPrayer: nextPrayerDetails, timeToNextPrayer: null, isAfterIsha: afterIsha, passedPrayerNames: passed, isToday: true };
+        
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff / 1000 / 60) % 60);
+        const seconds = Math.floor((diff / 1000) % 60);
+
+        return {
+            nextPrayer: nextPrayerDetails,
+            timeToNextPrayer: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+            isAfterIsha: afterIsha,
+            passedPrayerNames: passed,
+            isToday: true,
+        };
     }, [prayerData, currentTime, currentDate]);
     
-    if (loading || !prayerData) return <div className="flex items-center justify-center h-screen"><p>Loading prayer times...</p></div>;
+    if (loading || (!prayerData && !error)) return <div className="flex items-center justify-center h-screen"><p>Loading prayer times...</p></div>;
     if (error && !location) return <div className="flex flex-col items-center justify-center h-screen"><p className="text-red-400">Error: {error}</p><button onClick={() => setIsLocationModalOpen(true)} className="mt-4 px-4 py-2 bg-green-500 text-white rounded">Set Location</button></div>;
     
     return (
-        <div className="p-4">
-            <div className="text-center mb-4">
-              <h1 className="text-2xl font-bold">Prayer Times</h1>
-            </div>
-            
+        <div className="px-4 flex flex-col h-screen bg-primary text-primary overflow-hidden">
             {isLocationModalOpen && <LocationModal onClose={() => setIsLocationModalOpen(false)} onLocationSet={handleLocationUpdate} />}
 
-            <div className="flex items-center justify-between text-sm my-6">
-                <button onClick={handlePrevDay} className="p-2"><ChevronLeftIcon className="w-6 h-6 text-secondary" /></button>
+            <header className="pt-4">
                 <div className="text-center">
-                    <span className="font-semibold">{prayerData?.date.readable}</span>
-                    <span className="text-secondary"> • {prayerData?.date.hijri.day} {prayerData?.date.hijri.month.en}, {prayerData?.date.hijri.year} AH</span>
+                    <h1 className="text-2xl font-bold">Prayer Times</h1>
+                    <button onClick={() => setIsLocationModalOpen(true)} className="flex items-center justify-center space-x-1 text-secondary mx-auto">
+                        <LocationIcon className="w-4 h-4" />
+                        <span>{location?.city || '...'}</span>
+                    </button>
                 </div>
-                <button onClick={handleNextDay} className="p-2"><ChevronRightIcon className="w-6 h-6 text-secondary" /></button>
-            </div>
 
-            <div className="bg-secondary rounded-2xl p-4 space-y-2">
-                {prayerOrder.map(prayer => {
-                    const PrayerIcon = prayerIcons[prayer];
-                    const isActive = prayer === currentPrayer;
-                    return (
-                        <div key={prayer} className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? 'bg-tertiary accent-border border' : ''}`}>
-                            <div className="flex items-center space-x-4">
-                                <PrayerIcon className={`w-5 h-5 ${isActive ? 'accent-text' : 'text-secondary'}`} />
-                                <span className="font-medium">{prayer}</span>
+                <div className="flex items-center justify-between text-sm my-4">
+                    <button onClick={handlePrevDay} className="p-2 rounded-full hover:bg-secondary"><ChevronLeftIcon className="w-6 h-6 text-secondary" /></button>
+                    <div className="text-center">
+                        <span className="font-semibold">{prayerData?.date.readable}</span>
+                        <p className="text-secondary text-xs">{prayerData?.date.hijri.day} {prayerData?.date.hijri.month.en}, {prayerData?.date.hijri.year} AH</p>
+                    </div>
+                    <button onClick={handleNextDay} className="p-2 rounded-full hover:bg-secondary"><ChevronRightIcon className="w-6 h-6 text-secondary" /></button>
+                </div>
+            </header>
+
+            <main className="flex-grow flex items-center justify-center">
+                <div className="w-full max-w-sm bg-secondary rounded-3xl p-4 text-center shadow-lg animate-fade-in-up border border-primary">
+                    <p className="text-lg font-semibold accent-text">{isToday ? "Next Prayer" : prayerData?.date.readable}</p>
+                    <p className="text-3xl font-bold my-1 text-primary">{nextPrayer?.name || '...'}</p>
+                    <p className="text-5xl font-mono tracking-tight text-primary">
+                        {prayerData && nextPrayer ? formatPrayerTime(prayerData.timings[nextPrayer.name]) : '--:--'}
+                    </p>
+                    <p className="text-secondary mt-1 h-5">
+                        {timeToNextPrayer ? `in ${timeToNextPrayer}` : ''}
+                    </p>
+                </div>
+            </main>
+
+            <footer className="flex-shrink-0 pb-4">
+                <div className="space-y-2">
+                    {prayerOrder.filter(p => p !== 'Sunrise').map(prayer => {
+                        const PrayerIcon = prayerIcons[prayer];
+                        const isNext = prayer === nextPrayer?.name && !isAfterIsha && isToday;
+                        const hasPassed = passedPrayerNames.includes(prayer) && isToday && !isNext;
+
+                        let cardClass = 'bg-secondary border-black';
+                        let textClass = 'text-primary';
+                        let timeClass = 'text-secondary';
+                        let iconClass = 'text-secondary';
+
+                        if (isNext) {
+                            cardClass = 'bg-green-500 border-green-600 shadow-lg';
+                            textClass = 'text-white';
+                            timeClass = 'text-white/90';
+                            iconClass = 'text-white';
+                        } else if (hasPassed) {
+                            cardClass = 'bg-secondary border-black opacity-60';
+                        }
+
+                        return (
+                            <div key={prayer} className={`flex items-center justify-between p-3 rounded-xl border transition-all duration-300 ${cardClass}`}>
+                                <div className="flex items-center space-x-4">
+                                    <PrayerIcon className={`w-6 h-6 transition-colors ${iconClass}`} />
+                                    <p className={`font-semibold text-lg transition-colors ${textClass}`}>{prayer}</p>
+                                </div>
+                                <p className={`font-mono text-lg transition-colors ${timeClass}`}>
+                                    {prayerData ? formatPrayerTime(prayerData.timings[prayer]) : '--:--'}
+                                </p>
                             </div>
-                            <div className="flex items-center space-x-4">
-                                <span className="font-mono text-lg">{prayerData ? formatPrayerTime(prayerData.timings[prayer]) : ''}</span>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            </footer>
         </div>
     );
 };
