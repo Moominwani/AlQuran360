@@ -24,7 +24,6 @@ const About: React.FC<AboutProps> = ({ onBack }) => {
           <ul className="list-disc list-inside ml-4 space-y-1 text-primary">
               <li>Accurate Prayer Times</li>
               <li>Complete Quran Explorer</li>
-              <li>Hadith Library</li>
               <li>Tasbeeh Counter</li>
               <li>Qibla Direction</li>
           </ul>
@@ -34,7 +33,6 @@ const About: React.FC<AboutProps> = ({ onBack }) => {
           <ul className="list-disc list-inside ml-4 space-y-1 text-primary">
               <li>Prayer Times: aladhan.com</li>
               <li>Quran Text & Audio: alquran.cloud</li>
-              <li>Hadith Data: fawazahmed0/hadith-api</li>
               <li>Location Search: open-meteo.com</li>
           </ul>
         </div>

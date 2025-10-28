@@ -4,12 +4,10 @@ import BottomNav from './components/BottomNav';
 import Home from './pages/Home';
 import Quran from './pages/Quran';
 import Qibla from './pages/Qibla';
-import Tasbeeh from './pages/Tasbeeh';
 import SurahDetail from './pages/SurahDetail';
 import LocationManager from './components/LocationManager';
 import About from './pages/About';
 import Settings from './pages/Settings';
-import Hadith from './pages/Hadith';
 
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.Home);
@@ -49,12 +47,8 @@ const App: React.FC = () => {
         return <Home onOpenAbout={() => setFullPageView('about')} onOpenSettings={() => setFullPageView('settings')} />;
       case Page.Quran:
         return <Quran onSurahSelect={handleSurahSelect} />;
-      case Page.Hadith:
-        return <Hadith />;
       case Page.Qibla:
         return <Qibla />;
-      case Page.Tasbeeh:
-        return <Tasbeeh />;
       default:
         return <Home onOpenAbout={() => setFullPageView('about')} onOpenSettings={() => setFullPageView('settings')} />;
     }

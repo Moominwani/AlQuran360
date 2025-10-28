@@ -1,9 +1,7 @@
 export enum Page {
   Home = 'Home',
   Quran = 'Quran',
-  Hadith = 'Hadith',
   Qibla = 'Qibla',
-  Tasbeeh = 'Tasbeeh',
 }
 
 export interface PrayerTimes {
@@ -49,40 +47,4 @@ export interface Ayah {
 
 export interface SurahDetailData extends Surah {
   ayahs: Ayah[];
-}
-
-// FIX: Added missing Hadith related types.
-export interface Hadith {
-  collection: string;
-  book: number;
-  bookName: string;
-  chapter: number;
-  chapterName: string;
-  hadith: number;
-  body: string;
-}
-
-export interface SavedHadith extends Hadith {
-  id: string;
-}
-
-export interface HadithChapter {
-  chapter: number;
-  chapterName: string;
-  hadiths: Hadith[];
-}
-
-export interface HadithBook {
-  book: number;
-  bookName: string;
-  chapters: HadithChapter[];
-}
-
-export interface HadithCollection {
-  name: string;
-  title: string;
-  shortDescription: string;
-  books: HadithBook[];
-  hadithsCount?: number;
-  booksCount?: number;
 }
