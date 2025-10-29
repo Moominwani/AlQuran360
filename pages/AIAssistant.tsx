@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, FormEvent } from 'react';
-import { GoogleGenAI, FunctionDeclaration, Type, Part } from '@google/genai';
+import { GoogleGenAI, FunctionDeclaration, Type, Part, Chat } from '@google/genai';
 import { Page } from '../types';
 import { ChevronLeftIcon } from '../components/icons/MiscIcons';
 import { SendIcon, AIIcon } from '../components/icons/NavIcons';
@@ -58,6 +58,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const aiRef = useRef<GoogleGenAI | null>(null);
+    const chatRef = useRef<Chat | null>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
     const hints = [
@@ -68,16 +69,36 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
     ];
     
     useEffect(() => {
-        aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-        
-        // Set initial welcome message after a short delay for animation
-        setTimeout(() => {
-            setMessages([{
-                role: 'model',
-                parts: [{ text: "Greetings! I am AlQuran360's AI Assistant. This app was lovingly crafted by **Moomin Wani**. How may I help you navigate or learn today?" }]
-            }]);
-            setIsLoading(false);
-        }, 500);
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            aiRef.current = ai;
+
+            chatRef.current = ai.chats.create({
+                model: 'gemini-2.5-flash',
+                config: {
+                    tools: [{ functionDeclarations: [navigateToPage, navigateToSurah, navigateToSettings] }],
+                    systemInstruction: "You are a helpful assistant for an Islamic app called AlQuran360. You can help users navigate to different pages (Home, Prayer, Quran, Hadith), open specific Surahs by name or number, and go to settings. Your developer is Moomin Wani. When a user asks a question that can be answered with a function call, prioritize calling the function over providing a text response. Keep your text responses concise and friendly."
+                }
+            });
+
+            // Set initial welcome message after a short delay for animation
+            setTimeout(() => {
+                setMessages([{
+                    role: 'model',
+                    parts: [{ text: "Greetings! I am AlQuran360's AI Assistant. This app was lovingly crafted by **Moomin Wani**. How may I help you navigate or learn today?" }]
+                }]);
+                setIsLoading(false);
+            }, 500);
+        } catch (error) {
+            console.error("Error initializing AI:", error);
+            setTimeout(() => {
+                setMessages([{
+                    role: 'model',
+                    parts: [{ text: "I'm having trouble starting up. This might be due to an issue with the API key or network connection. Please check the setup and try again." }]
+                }]);
+                setIsLoading(false);
+            }, 500);
+        }
     }, []);
 
     useEffect(() => {
@@ -94,21 +115,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
         setIsLoading(true);
 
         try {
-            if (!aiRef.current) throw new Error("AI Client not initialized");
+            if (!chatRef.current) throw new Error("AI Chat not initialized");
             
-            const chatHistory = messages.map(msg => ({
-                role: msg.role,
-                parts: msg.parts,
-            }));
-
-            const response = await aiRef.current.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: [...chatHistory, { role: 'user', parts: [{text: prompt}] }],
-                config: {
-                    tools: [{ functionDeclarations: [navigateToPage, navigateToSurah, navigateToSettings] }],
-                    systemInstruction: "You are a helpful assistant for an Islamic app called AlQuran360. You can help users navigate to different pages (Home, Prayer, Quran, Hadith), open specific Surahs by name or number, and go to settings. Your developer is Moomin Wani. When a user asks a question that can be answered with a function call, prioritize calling the function over providing a text response. Keep your text responses concise and friendly."
-                }
-            });
+            const response = await chatRef.current.sendMessage({ message: prompt });
 
             if (response.functionCalls && response.functionCalls.length > 0) {
                 for (const fc of response.functionCalls) {
