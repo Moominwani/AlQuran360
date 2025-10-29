@@ -20,7 +20,8 @@ interface AIAssistantProps {
 const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigateSurah, onNavigateSettings }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasApiKey, setHasApiKey] = useState<boolean | 'checking'>('checking');
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
     const hints = [
@@ -32,14 +33,26 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
     ];
     
     useEffect(() => {
-        setTimeout(() => {
-            setMessages([{
-                role: 'model',
-                parts: [{ text: "Greetings! I am your guide to AlQuran360. This app was lovingly crafted by **Moomin Wani**. You can ask me to open a Surah, show prayer times, and more. How may I help you?" }]
-            }]);
-            setIsLoading(false);
-        }, 500);
+        const checkKey = async () => {
+            if (typeof (window as any).aistudio?.hasSelectedApiKey === 'function') {
+                const keyStatus = await (window as any).aistudio.hasSelectedApiKey();
+                setHasApiKey(keyStatus);
+                if (keyStatus) {
+                    initializeChat();
+                }
+            } else {
+                setHasApiKey(false);
+            }
+        };
+        checkKey();
     }, []);
+
+    const initializeChat = () => {
+        setMessages([{
+            role: 'model',
+            parts: [{ text: "Greetings! I am your guide to AlQuran360. This app was lovingly crafted by **Moomin Wani**. You can ask me to open a Surah, show prayer times, and more. How may I help you?" }]
+        }]);
+    };
 
     useEffect(() => {
         if (chatContainerRef.current) {
@@ -55,26 +68,40 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
         setIsLoading(true);
         setInputText('');
 
-        const { responseText, action } = await getIntentAndResponse(prompt);
+        try {
+            const { responseText, action } = await getIntentAndResponse(prompt);
+            const newModelMessage: Message = { role: 'model', parts: [{ text: responseText }] };
+            setMessages(prev => [...prev, newModelMessage]);
 
-        const newModelMessage: Message = { role: 'model', parts: [{ text: responseText }] };
-        setMessages(prev => [...prev, newModelMessage]);
-        setIsLoading(false);
-
-        if (action && action.type !== 'info') {
-            setTimeout(() => {
-                switch (action.type) {
-                    case 'navigate_page':
-                        onNavigate(action.payload.page);
-                        break;
-                    case 'navigate_surah':
-                        onNavigateSurah(action.payload.surahNumber, action.payload.startPlayback);
-                        break;
-                    case 'navigate_settings':
-                        onNavigateSettings();
-                        break;
+            if (action && action.type !== 'info') {
+                setTimeout(() => {
+                    switch (action.type) {
+                        case 'navigate_page':
+                            onNavigate(action.payload.page);
+                            break;
+                        case 'navigate_surah':
+                            onNavigateSurah(action.payload.surahNumber, action.payload.startPlayback);
+                            break;
+                        case 'navigate_settings':
+                            onNavigateSettings();
+                            break;
+                    }
+                }, 800);
+            }
+        } catch (error) {
+            console.error("AI Error:", error);
+            let errorMessage = "An unexpected error occurred.";
+            if (error instanceof Error) {
+                if (error.message.includes("not found") || error.message.includes("API key")) {
+                    setHasApiKey(false);
+                    errorMessage = "Your API key seems to be invalid. Please select a valid key to continue.";
+                } else {
+                    errorMessage = `An error occurred: ${error.message}`;
                 }
-            }, 800);
+            }
+            setMessages(prev => [...prev, { role: 'model', parts: [{ text: errorMessage }] }]);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -85,6 +112,50 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
     
     const handleHintClick = (hint: string) => {
         handleSendMessage(hint);
+    }
+    
+    const handleSelectKey = async () => {
+        if ((window as any).aistudio?.openSelectKey) {
+            await (window as any).aistudio.openSelectKey();
+            setHasApiKey(true);
+            setMessages([]); // Clear chat history
+            initializeChat();
+        }
+    };
+    
+    if (hasApiKey === 'checking') {
+        return (
+            <div className="bg-primary text-primary min-h-screen flex flex-col items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <p className="mt-4 text-secondary">Checking AI configuration...</p>
+            </div>
+        );
+    }
+
+    if (!hasApiKey) {
+        return (
+            <div className="bg-primary text-primary min-h-screen flex flex-col">
+                <header className="flex items-center p-4 border-b border-primary/20">
+                    <button onClick={onBack} className="p-2 mr-2 rounded-full hover:bg-secondary">
+                        <ChevronLeftIcon className="w-6 h-6" />
+                    </button>
+                    <h1 className="text-xl font-bold">AI Assistant</h1>
+                </header>
+                <div className="flex-grow flex flex-col items-center justify-center p-4 text-center">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center mb-4">
+                        <AIIcon className="w-9 h-9 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-primary mb-2">API Key Required</h2>
+                    <p className="text-secondary mb-6 max-w-sm">To enable the AI Assistant, please select a Google AI Studio API key. This is required for all AI-powered features.</p>
+                    <button onClick={handleSelectKey} className="px-6 py-3 rounded-lg bg-green-500 text-white font-semibold shadow-md hover:bg-green-600 transition-colors">
+                        Select API Key
+                    </button>
+                    <p className="text-xs text-secondary mt-4">
+                        For more info, see the <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline accent-text">billing documentation</a>.
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     return (

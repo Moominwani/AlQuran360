@@ -6,26 +6,6 @@ export interface AIAction {
     payload: any;
 }
 
-let aiInstance: GoogleGenAI | null = null;
-
-/**
- * Lazily initializes and returns the GoogleGenAI client instance.
- * This prevents the app from crashing on load if the API key environment variable is not available.
- * @throws {Error} if the API_KEY environment variable is not set.
- */
-const getAiClient = (): GoogleGenAI => {
-    if (!aiInstance) {
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) {
-            console.error("API_KEY environment variable not found.");
-            throw new Error("AI Service is not configured: API key is missing.");
-        }
-        aiInstance = new GoogleGenAI({ apiKey });
-    }
-    return aiInstance;
-};
-
-
 // --- Define Function Declarations for the AI model ---
 
 const navigateToPage: FunctionDeclaration = {
@@ -84,7 +64,12 @@ Your primary role is to understand user requests and use the provided tools to n
 
 export const getIntentAndResponse = async (prompt: string): Promise<{ responseText: string, action: AIAction | null }> => {
     try {
-        const ai = getAiClient();
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) {
+            throw new Error("API key not found. Please select an API key to use AI features.");
+        }
+        const ai = new GoogleGenAI({ apiKey });
+
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
@@ -138,10 +123,7 @@ export const getIntentAndResponse = async (prompt: string): Promise<{ responseTe
 
     } catch (error) {
         console.error("Error calling Gemini API:", error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        return {
-            responseText: `I'm having a little trouble connecting right now. Please check your connection or API key configuration. (Error: ${errorMessage})`,
-            action: null
-        };
+        // Re-throw the error so UI components can handle it, e.g., by prompting for an API key.
+        throw error;
     }
 };

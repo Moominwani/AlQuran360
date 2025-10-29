@@ -17,11 +17,11 @@ const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any
 const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavigate, onNavigateSurah, onNavigateSettings }) => {
     const [status, setStatus] = useState<'idle' | 'starting' | 'listening' | 'processing' | 'speaking'>('idle');
     const [transcript, setTranscript] = useState('');
+    const [hasApiKey, setHasApiKey] = useState<boolean | 'checking'>('checking');
     
     const recognitionRef = useRef<any>(null);
     const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-    // Refs to hold the latest state and props for use in stable callbacks
     const statusRef = useRef(status);
     useEffect(() => { statusRef.current = status; }, [status]);
 
@@ -29,8 +29,24 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
     useEffect(() => {
         propsRef.current = { onClose, onNavigate, onNavigateSurah, onNavigateSettings };
     }, [onClose, onNavigate, onNavigateSurah, onNavigateSettings]);
+    
+    const hasApiKeyRef = useRef(hasApiKey);
+    useEffect(() => { hasApiKeyRef.current = hasApiKey; }, [hasApiKey]);
 
-    // Setup recognition instance and its event handlers only once
+    useEffect(() => {
+        if (!isOpen) return;
+        setHasApiKey('checking');
+        const checkKey = async () => {
+            if (typeof (window as any).aistudio?.hasSelectedApiKey === 'function') {
+                const keyStatus = await (window as any).aistudio.hasSelectedApiKey();
+                setHasApiKey(keyStatus);
+            } else {
+                setHasApiKey(false);
+            }
+        };
+        checkKey();
+    }, [isOpen]);
+
     useEffect(() => {
         if (!SpeechRecognitionAPI) {
             console.error("Speech Recognition API not supported in this browser.");
@@ -58,44 +74,57 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
 
         const processCommand = async (command: string) => {
             setStatus('processing');
-            const { responseText, action } = await getIntentAndResponse(command);
-            
-            const performActionAndClose = () => {
-                if (action && action.type !== 'info') {
-                    switch (action.type) {
-                        case 'navigate_page': propsRef.current.onNavigate(action.payload.page); break;
-                        case 'navigate_surah': propsRef.current.onNavigateSurah(action.payload.surahNumber, action.payload.startPlayback); break;
-                        case 'navigate_settings': propsRef.current.onNavigateSettings(); break;
+            try {
+                const { responseText, action } = await getIntentAndResponse(command);
+                
+                const performActionAndClose = () => {
+                    if (action && action.type !== 'info') {
+                        switch (action.type) {
+                            case 'navigate_page': propsRef.current.onNavigate(action.payload.page); break;
+                            case 'navigate_surah': propsRef.current.onNavigateSurah(action.payload.surahNumber, action.payload.startPlayback); break;
+                            case 'navigate_settings': propsRef.current.onNavigateSettings(); break;
+                        }
+                    }
+                    setTimeout(() => propsRef.current.onClose(), action && action.type !== 'info' ? 300 : 100);
+                };
+
+                if ('speechSynthesis' in window) {
+                    setStatus('speaking');
+                    window.speechSynthesis.cancel();
+                    const newUtterance = new SpeechSynthesisUtterance(responseText);
+                    utteranceRef.current = newUtterance;
+                    newUtterance.onend = () => { if (utteranceRef.current === newUtterance) performActionAndClose(); };
+                    newUtterance.onerror = (e: SpeechSynthesisErrorEvent) => { console.error(e); if (utteranceRef.current === newUtterance) performActionAndClose(); };
+                    window.speechSynthesis.speak(newUtterance);
+                } else {
+                    performActionAndClose();
+                }
+
+            } catch (error) {
+                console.error("AI Error in Voice Assistant:", error);
+                let errorMessage = "An unexpected error occurred.";
+                if (error instanceof Error) {
+                    if (error.message.includes("not found") || error.message.includes("API key")) {
+                        setHasApiKey(false);
+                        errorMessage = "Your API key seems invalid. Please select a key to continue.";
+                    } else {
+                        errorMessage = `An error occurred: ${error.message}`;
                     }
                 }
-                setTimeout(() => propsRef.current.onClose(), action && action.type !== 'info' ? 300 : 100);
-            };
-
-            if ('speechSynthesis' in window) {
-                setStatus('speaking');
-                window.speechSynthesis.cancel();
-
-                const newUtterance = new SpeechSynthesisUtterance(responseText);
-                utteranceRef.current = newUtterance;
-
-                newUtterance.onend = () => {
-                    if (utteranceRef.current === newUtterance) {
-                        performActionAndClose();
-                    }
-                };
-
-                newUtterance.onerror = (event: SpeechSynthesisErrorEvent) => {
-                    console.error(`SpeechSynthesis Error: "${event.error}"`);
-                    if (utteranceRef.current === newUtterance) {
-                        performActionAndClose();
-                    }
-                };
                 
-                window.speechSynthesis.speak(newUtterance);
-
-            } else {
-                console.error("Speech synthesis not supported.");
-                performActionAndClose();
+                if ('speechSynthesis' in window) {
+                    setStatus('speaking');
+                    window.speechSynthesis.cancel();
+                    const newUtterance = new SpeechSynthesisUtterance(errorMessage);
+                    newUtterance.onend = () => {
+                        setStatus('idle');
+                        if (hasApiKeyRef.current) propsRef.current.onClose();
+                    };
+                    window.speechSynthesis.speak(newUtterance);
+                } else {
+                    setStatus('idle');
+                    if (hasApiKeyRef.current) propsRef.current.onClose();
+                }
             }
         };
 
@@ -116,14 +145,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
             }
         };
 
-        return () => {
-            if (recognitionRef.current) {
-                recognitionRef.current.abort();
-            }
-        };
+        return () => { if (recognitionRef.current) recognitionRef.current.abort(); };
     }, []);
 
-    // Effect to reset state when modal is opened or closed
     useEffect(() => {
         if (isOpen) {
             setTranscript('');
@@ -134,10 +158,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
         }
     }, [isOpen]);
     
-    // Effect that triggers start based on state, preventing race conditions.
     useEffect(() => {
         const recognition = recognitionRef.current;
-        if (isOpen && status === 'idle' && recognition) {
+        if (isOpen && status === 'idle' && hasApiKey === true && recognition) {
             setStatus('starting');
             try {
                 recognition.start();
@@ -146,27 +169,58 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
                 setStatus('idle');
             }
         }
-    }, [isOpen, status]);
+    }, [isOpen, status, hasApiKey]);
     
     if (!isOpen) return null;
 
-    const getStatusMessage = () => {
-        switch(status) {
-            case 'starting':
-            case 'listening': return 'Listening...';
-            case 'processing': return 'Thinking...';
-            case 'speaking': return 'Speaking...';
-            default: return "Say a command, e.g., 'Open Surah Yasin'";
+    const handleSelectKey = async () => {
+        if ((window as any).aistudio?.openSelectKey) {
+            await (window as any).aistudio.openSelectKey();
+            setHasApiKey(true);
+            setStatus('idle');
         }
-    }
+    };
+    
+    const renderContent = () => {
+        if (hasApiKey === 'checking') {
+            return (
+                <>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p className="mt-4 text-secondary">Checking AI configuration...</p>
+                </>
+            );
+        }
+        
+        if (!hasApiKey) {
+            return (
+                <>
+                    <div className="w-28 h-28 rounded-full bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center shadow-lg mb-6">
+                        <AIIcon className="w-14 h-14 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-primary mb-2">API Key Required</h2>
+                    <p className="text-secondary mb-6 max-w-sm">The Voice Assistant needs a Google AI Studio API key to function.</p>
+                    <button onClick={handleSelectKey} className="px-6 py-3 rounded-lg bg-green-500 text-white font-semibold shadow-md hover:bg-green-600 transition-colors">
+                        Select API Key
+                    </button>
+                    <p className="text-xs text-secondary mt-4">
+                        See the <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline accent-text">billing documentation</a> for details.
+                    </p>
+                </>
+            );
+        }
 
-    return (
-        <div className="fixed inset-0 bg-secondary/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 text-primary animate-fade-in" onClick={onClose}>
-            <button onClick={onClose} className="absolute top-4 right-4 text-primary p-2 rounded-full hover:bg-tertiary">
-                <CloseIcon className="w-6 h-6" />
-            </button>
-            
-            <div className="flex-grow flex flex-col items-center justify-center text-center w-full">
+        const getStatusMessage = () => {
+            switch(status) {
+                case 'starting':
+                case 'listening': return 'Listening...';
+                case 'processing': return 'Thinking...';
+                case 'speaking': return 'Speaking...';
+                default: return "Say a command, e.g., 'Open Surah Yasin'";
+            }
+        };
+
+        return (
+            <>
                 <div className="relative w-48 h-48 flex items-center justify-center mb-8">
                     {(status === 'listening' || status === 'starting') && (
                         <>
@@ -181,6 +235,17 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
 
                 <p className="text-sm text-secondary mb-2 h-4">{getStatusMessage()}</p>
                 <p className="text-2xl font-semibold h-16">{transcript || '...'}</p>
+            </>
+        );
+    };
+
+    return (
+        <div className="fixed inset-0 bg-secondary/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 text-primary animate-fade-in" onClick={onClose}>
+            <button onClick={onClose} className="absolute top-4 right-4 text-primary p-2 rounded-full hover:bg-tertiary">
+                <CloseIcon className="w-6 h-6" />
+            </button>
+            <div className="flex-grow flex flex-col items-center justify-center text-center w-full">
+                {renderContent()}
             </div>
         </div>
     );
