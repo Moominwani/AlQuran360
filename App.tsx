@@ -9,12 +9,14 @@ import About from './pages/About';
 import Settings from './pages/Settings';
 import Prayer from './pages/Prayer';
 import Hadith from './pages/Hadith';
+import AIModal, { AIAction } from './components/AIModal';
 
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.Home);
   const [viewingSurah, setViewingSurah] = useState<number | null>(null);
   const [locationReady, setLocationReady] = useState<boolean>(false);
   const [fullPageView, setFullPageView] = useState<'about' | 'settings' | null>(null);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   useEffect(() => {
     const savedLocation = localStorage.getItem('userLocation');
@@ -36,6 +38,24 @@ const App: React.FC = () => {
     setViewingSurah(null);
     setFullPageView(null);
     setActivePage(page);
+  };
+  
+  const handleAiAction = (action: AIAction) => {
+    setIsAiModalOpen(false); // Close modal after an action is triggered
+    setTimeout(() => { // Timeout to allow modal to close before navigating
+        switch(action.type) {
+            case 'navigate_page':
+                changePage(action.payload.page);
+                break;
+            case 'navigate_surah':
+                setActivePage(Page.Quran);
+                handleSurahSelect(action.payload.surahNumber);
+                break;
+            case 'navigate_settings':
+                setFullPageView('settings');
+                break;
+        }
+    }, 300);
   };
 
   const renderPage = () => {
@@ -75,7 +95,8 @@ const App: React.FC = () => {
       <main className={`flex-grow ${showNav ? 'pb-20' : ''}`}>
         {renderPage()}
       </main>
-      {showNav && <BottomNav activePage={activePage} setActivePage={changePage} />}
+      {showNav && <BottomNav activePage={activePage} setActivePage={changePage} onAiClick={() => setIsAiModalOpen(true)} />}
+      <AIModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} onAction={handleAiAction} />
     </div>
   );
 };

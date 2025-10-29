@@ -1,9 +1,102 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronLeftIcon, StarIcon, FilledStarIcon } from '../components/icons/MiscIcons';
+import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
+import { ChevronLeftIcon, StarIcon, FilledStarIcon, BookOpenIcon, SearchIcon } from '../components/icons/MiscIcons';
 import { CopyIcon, ShareIcon } from '../components/icons/PlayerIcons';
 
+// SlidersIcon might not exist, let's create a simple one if it's not in MiscIcons.
+const SlidersIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <line x1="4" y1="21" x2="4" y2="14"></line>
+        <line x1="4" y1="10" x2="4" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12" y2="3"></line>
+        <line x1="20" y1="21" x2="20" y2="16"></line>
+        <line x1="20" y1="12" x2="20" y2="3"></line>
+        <line x1="1" y1="14" x2="7" y2="14"></line>
+        <line x1="9" y1="8" x2="15" y2="8"></line>
+        <line x1="17" y1="16" x2="23" y2="16"></line>
+    </svg>
+);
+
+
 // --- API Configuration ---
-const API_BASE = 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1';
+const API_KEY = '$2y$10$b7nXn4eOT5QD9c3dvsPBsOloRdSlnwWD7EZ8xyKHHPuR6MNWTIF';
+const API_BASE = 'https://hadithapi.com/api';
+
+// --- Reader Settings ---
+interface HadithSettings {
+    fontSize: number;
+    fontStyle: 'default' | 'amiri';
+    lineSpacing: number;
+}
+
+const defaultSettings: HadithSettings = {
+    fontSize: 16,
+    fontStyle: 'default',
+    lineSpacing: 1.7,
+};
+
+const HadithSettingsContext = createContext<{
+    settings: HadithSettings;
+    setSettings: React.Dispatch<React.SetStateAction<HadithSettings>>;
+} | undefined>(undefined);
+
+const useHadithSettings = () => {
+    const context = useContext(HadithSettingsContext);
+    if (!context) {
+        throw new Error('useHadithSettings must be used within a HadithSettingsProvider');
+    }
+    return context;
+};
+
+const HADITH_SETTINGS_KEY = 'hadith_reader_settings';
+
+const HadithSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [settings, setSettings] = useState<HadithSettings>(() => {
+        try {
+            const savedSettings = localStorage.getItem(HADITH_SETTINGS_KEY);
+            return savedSettings ? JSON.parse(savedSettings) : defaultSettings;
+        } catch {
+            return defaultSettings;
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem(HADITH_SETTINGS_KEY, JSON.stringify(settings));
+    }, [settings]);
+
+    return (
+        <HadithSettingsContext.Provider value={{ settings, setSettings }}>
+            {children}
+        </HadithSettingsContext.Provider>
+    );
+};
+
+// --- Type Interfaces for the new API ---
+interface Book {
+    bookSlug: string;
+    bookName: string;
+    writerName: string;
+    hadiths_count: number;
+}
+
+interface Chapter {
+    chapterNumber: string;
+    chapterEnglish: string;
+    chapterArabic: string;
+}
+
+interface HadithData {
+    hadithNumber: string;
+    englishNarrator: string;
+    hadithEnglish: string;
+    hadithArabic: string;
+    chapterId: string;
+    book: {
+        bookName: string;
+    };
+    grades?: any[];
+}
+
 
 // --- Reusable Components ---
 const LoadingSpinner: React.FC = () => (
@@ -19,16 +112,87 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
     </div>
 );
 
-const PageHeader: React.FC<{ title: string; onBack?: () => void }> = ({ title, onBack }) => (
-    <header className="flex items-center mb-4 sticky top-0 bg-primary py-4 z-10">
-        {onBack && (
-            <button onClick={onBack} className="p-2 mr-2 rounded-full hover:bg-secondary">
-                <ChevronLeftIcon className="w-6 h-6" />
-            </button>
-        )}
-        <h1 className="text-2xl font-bold truncate">{title}</h1>
+const SearchBar: React.FC<{ searchTerm: string; setSearchTerm: (term: string) => void; placeholder: string }> = ({ searchTerm, setSearchTerm, placeholder }) => (
+    <div className="relative my-4">
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" />
+        <input
+            type="text"
+            placeholder={placeholder}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-secondary border border-primary rounded-lg py-2 pl-10 pr-4 text-primary placeholder-color focus:outline-none focus:ring-1 focus:ring-green-500"
+        />
+    </div>
+);
+
+const PageHeader: React.FC<{ title: string; onBack?: () => void; rightAction?: React.ReactNode }> = ({ title, onBack, rightAction }) => (
+    <header className="flex items-center justify-between mb-2 sticky top-0 bg-primary py-4 z-10">
+        <div className="flex items-center">
+            {onBack && (
+                <button onClick={onBack} className="p-2 mr-2 rounded-full hover:bg-secondary">
+                    <ChevronLeftIcon className="w-6 h-6" />
+                </button>
+            )}
+            <h1 className="text-2xl font-bold truncate">{title}</h1>
+        </div>
+        {rightAction}
     </header>
 );
+
+// --- Reader Settings Modal ---
+const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+    const { settings, setSettings } = useHadithSettings();
+
+    if (!isOpen) return null;
+
+    const changeFontSize = (delta: number) => {
+        setSettings(s => ({ ...s, fontSize: Math.max(12, Math.min(28, s.fontSize + delta)) }));
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={onClose}>
+            <div className="w-full bg-secondary rounded-t-2xl p-6 animate-fade-in-up" onClick={e => e.stopPropagation()}>
+                <div className="w-12 h-1.5 bg-tertiary rounded-full mx-auto mb-4"></div>
+                <h2 className="text-xl font-bold text-center mb-6 text-primary">Reader Settings</h2>
+                <div className="space-y-6">
+                    {/* Font Size */}
+                    <div>
+                        <label className="block text-sm font-medium text-secondary mb-2">Font Size</label>
+                        <div className="flex items-center justify-between bg-tertiary rounded-lg p-2">
+                            <button onClick={() => changeFontSize(-1)} className="px-4 py-2 text-xl font-bold text-primary">-</button>
+                            <span className="text-lg font-mono text-primary">{settings.fontSize}px</span>
+                            <button onClick={() => changeFontSize(1)} className="px-4 py-2 text-xl font-bold text-primary">+</button>
+                        </div>
+                    </div>
+                    {/* Font Style */}
+                    <div>
+                        <label className="block text-sm font-medium text-secondary mb-2">English Font</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => setSettings(s => ({ ...s, fontStyle: 'default' }))} className={`py-2 rounded-lg ${settings.fontStyle === 'default' ? 'bg-green-500 text-inverted' : 'bg-tertiary text-primary'}`}>Default</button>
+                            <button onClick={() => setSettings(s => ({ ...s, fontStyle: 'amiri' }))} className={`py-2 rounded-lg font-amiri ${settings.fontStyle === 'amiri' ? 'bg-green-500 text-inverted' : 'bg-tertiary text-primary'}`}>Amiri</button>
+                        </div>
+                    </div>
+                    {/* Line Spacing */}
+                    <div>
+                        <label className="block text-sm font-medium text-secondary mb-2">Line Spacing</label>
+                         <div className="flex items-center space-x-4 bg-tertiary p-2 rounded-lg">
+                            <input
+                                type="range"
+                                min="1.4"
+                                max="2.4"
+                                step="0.1"
+                                value={settings.lineSpacing}
+                                onChange={(e) => setSettings(s => ({ ...s, lineSpacing: parseFloat(e.target.value) }))}
+                                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-green-500"
+                            />
+                            <span className="text-sm font-mono text-primary">{settings.lineSpacing.toFixed(1)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // --- API Fetch Hook ---
 const useFetchData = <T,>(url: string) => {
@@ -65,132 +229,126 @@ const useFetchData = <T,>(url: string) => {
 
 // --- View Components ---
 
-const collectionImageMap: { [key: string]: string } = {
-  bukhari: 'https://assets.sunnah.com/images/books/1.png',
-  muslim: 'https://assets.sunnah.com/images/books/2.png',
-  abudawud: 'https://assets.sunnah.com/images/books/3.png',
-  tirmidhi: 'https://assets.sunnah.com/images/books/4.png',
-  nasai: 'https://assets.sunnah.com/images/books/5.png',
-  ibnmajah: 'https://assets.sunnah.com/images/books/6.png',
-  malik: 'https://assets.sunnah.com/images/books/7.png',
-  riyadussalihin: 'https://assets.sunnah.com/images/books/10.png',
-  adab: 'https://assets.sunnah.com/images/books/46.png',
-  bulugh: 'https://assets.sunnah.com/images/books/48.png',
-  forty: 'https://assets.sunnah.com/images/books/41.png',
-  nawawi: 'https://assets.sunnah.com/images/books/41.png',
-  shamail: 'https://assets.sunnah.com/images/books/47.png',
-  qudsi: 'https://assets.sunnah.com/images/books/42.png',
-};
-
-const CollectionsList: React.FC<{ onSelect: (name: string, title: string) => void }> = ({ onSelect }) => {
-    const { data: editions, loading, error } = useFetchData<any>(`${API_BASE}/editions.json`);
-
-    const englishEditions = useMemo(() => {
-        if (!editions) {
-            return [];
-        }
-        // The API is expected to return an array, but we handle objects just in case.
-        const editionsArray = Array.isArray(editions) ? editions : Object.values(editions);
-        return editionsArray.filter(edition => edition && typeof edition === 'object' && edition.language === 'en');
-    }, [editions]);
+const BooksList: React.FC<{ onSelect: (slug: string, name: string) => void }> = ({ onSelect }) => {
+    const { data, loading, error } = useFetchData<{ books: Book[] }>(`${API_BASE}/books?apiKey=${API_KEY}`);
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    const filteredBooks = useMemo(() => {
+        if (!data?.books) return [];
+        return data.books.filter(book =>
+            book.bookName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            book.writerName.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [data, searchTerm]);
 
     return (
         <div className="animate-fade-in">
-            <PageHeader title="Hadith Collections" />
+            <PageHeader title="Hadith Books" />
+            <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} placeholder="Search books by name or author..." />
             {loading && <LoadingSpinner />}
             {error && <ErrorMessage message={error} />}
-            <div className="space-y-4">
-                {englishEditions?.map(edition => {
-                    const collectionKey = edition.name.replace('eng-', '');
-                    const imageUrl = collectionImageMap[collectionKey] || 'https://assets.sunnah.com/images/books/placeholder.png';
-                    const title = edition.collection?.[0]?.title || edition.name;
-                    return (
-                        <div key={edition.name} onClick={() => onSelect(edition.name, title)} className="w-full bg-secondary rounded-xl p-4 flex items-center space-x-4 text-left cursor-pointer transition-transform transform hover:scale-[1.02]">
-                            <img src={imageUrl} alt={title} className="w-20 h-28 object-cover rounded-md flex-shrink-0 bg-tertiary" onError={(e) => { e.currentTarget.src = 'https://assets.sunnah.com/images/books/placeholder.png'; }} />
-                            <div className="flex-grow">
-                                <p className="font-bold text-lg text-primary">{title}</p>
-                                <p className="text-sm text-secondary mt-1">{edition.author}</p>
-                            </div>
+            <div className="space-y-3">
+                {filteredBooks.map(book => (
+                    <div key={book.bookSlug} onClick={() => onSelect(book.bookSlug, book.bookName)} className="w-full bg-secondary rounded-xl p-4 flex items-center space-x-4 text-left cursor-pointer transition-transform transform hover:scale-[1.02]">
+                        <div className="w-16 h-16 bg-tertiary rounded-2xl flex items-center justify-center flex-shrink-0">
+                           <BookOpenIcon className="w-8 h-8 text-secondary" />
                         </div>
-                    );
-                })}
+                        <div className="flex-grow">
+                            <p className="font-bold text-lg text-primary">{book.bookName}</p>
+                            <p className="text-sm text-secondary mt-1">{book.writerName}</p>
+                            <p className="text-xs text-secondary mt-1">{book.hadiths_count} Hadiths</p>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );
 };
 
-const SectionsList: React.FC<{ collectionName: string; collectionTitle: string; onSelect: (sectionNumber: string, sectionName: string) => void; onBack: () => void }> = ({ collectionName, collectionTitle, onSelect, onBack }) => {
-    const { data: info, loading, error } = useFetchData<any>(`${API_BASE}/info.json`);
+const ChaptersList: React.FC<{ bookSlug: string; bookName: string; onSelect: (chapterNumber: string, chapterName: string) => void; onSelectFavorites: () => void; onBack: () => void }> = ({ bookSlug, bookName, onSelect, onSelectFavorites, onBack }) => {
+    const { data, loading, error } = useFetchData<{ chapters: Chapter[] }>(`${API_BASE}/${bookSlug}/chapters?apiKey=${API_KEY}`);
+    const [searchTerm, setSearchTerm] = useState('');
 
-    const collectionInfo = useMemo(() => {
-        return info ? info[collectionName]?.metadata : null;
-    }, [info, collectionName]);
+    const filteredChapters = useMemo(() => {
+        if (!data?.chapters) return [];
+        return data.chapters.filter(chapter =>
+            chapter.chapterEnglish.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            chapter.chapterArabic.includes(searchTerm) ||
+            chapter.chapterNumber.toString().includes(searchTerm)
+        );
+    }, [data, searchTerm]);
 
     return (
         <div className="animate-fade-in">
-            <PageHeader title={collectionTitle} onBack={onBack} />
+            <PageHeader title={bookName} onBack={onBack} />
+            <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} placeholder="Search chapters..." />
+            
+            <button onClick={onSelectFavorites} className="w-full flex items-center justify-center space-x-2 text-left p-3 mb-3 bg-secondary rounded-lg hover:bg-tertiary transition-colors">
+                <FilledStarIcon className="w-5 h-5 text-yellow-400" />
+                <span className="font-semibold text-primary">View Favorites</span>
+            </button>
+
             {loading && <LoadingSpinner />}
             {error && <ErrorMessage message={error} />}
-            {collectionInfo && (
+            {filteredChapters.length > 0 && (
                 <div>
-                    {Object.entries(collectionInfo.sectionDetails).map(([number, name]) => {
-                        const range = collectionInfo.sections[number];
-                        return (
-                            <button key={number} onClick={() => onSelect(number, name as string)} className="w-full flex items-center justify-between text-left py-4 border-b border-primary/20">
-                                <div className="flex items-center space-x-4">
-                                    <div className="flex-shrink-0 w-8 h-8 bg-tertiary rounded-full flex items-center justify-center font-mono text-sm font-bold text-primary">
-                                        {number}
-                                    </div>
-                                    <p className="font-semibold text-primary">{name as string}</p>
+                    {filteredChapters.map((chapter) => (
+                        <button key={chapter.chapterNumber} onClick={() => onSelect(chapter.chapterNumber, chapter.chapterEnglish)} className="w-full flex items-center justify-between text-left py-4 border-b border-primary/20">
+                            <div className="flex items-center space-x-4 flex-1 min-w-0">
+                                <div className="flex-shrink-0 w-8 h-8 bg-tertiary rounded-full flex items-center justify-center font-mono text-sm font-bold text-primary">
+                                    {chapter.chapterNumber}
                                 </div>
-                                {range && <p className="font-mono text-sm text-secondary">{range.from}-{range.to}</p>}
-                            </button>
-                        )
-                    })}
+                                <p className="font-semibold text-primary truncate">{chapter.chapterEnglish}</p>
+                            </div>
+                            <p className="font-amiri text-lg text-right text-secondary pl-4">{chapter.chapterArabic}</p>
+                        </button>
+                    ))}
                 </div>
             )}
         </div>
     );
 };
 
-interface MergedHadith {
-    hadithnumber: number;
-    arabicnumber: number;
-    englishText: string;
-    arabicText: string;
-    grades: any[];
-}
-
-const HadithCard: React.FC<{ hadith: MergedHadith; collectionName: string; isFavorite: boolean; onFavorite: () => void; }> = ({ hadith, collectionName, isFavorite, onFavorite }) => {
+const HadithCard: React.FC<{ hadith: HadithData; isFavorite: boolean; onToggleFavorite: () => void; }> = ({ hadith, isFavorite, onToggleFavorite }) => {
+    const { settings } = useHadithSettings();
     
     const handleCopy = () => {
-        const textToCopy = `${hadith.arabicText}\n\n${hadith.englishText}\n\n[${collectionName.replace('eng-', '')} ${hadith.hadithnumber}]`;
+        const textToCopy = `${hadith.hadithArabic}\n\n${hadith.hadithEnglish}\n\n[${hadith.book.bookName} ${hadith.hadithNumber}]`;
         navigator.clipboard.writeText(textToCopy);
     };
 
     const handleShare = () => {
         if (navigator.share) {
             navigator.share({
-                title: `Hadith: ${collectionName.replace('eng-', '')} ${hadith.hadithnumber}`,
-                text: `${hadith.englishText}\n\n[${collectionName.replace('eng-', '')} ${hadith.hadithnumber}]`,
-                url: window.location.href,
-            });
+                title: `Hadith: ${hadith.book.bookName} ${hadith.hadithNumber}`,
+                text: `${hadith.hadithEnglish}\n\n[${hadith.book.bookName} ${hadith.hadithNumber}]`,
+            }).catch(error => console.log('Error sharing:', error));
+        } else {
+            handleCopy();
+            alert("Share feature not supported. Hadith copied to clipboard.");
         }
     };
     
     return (
         <div className="bg-secondary rounded-xl p-4 flex flex-col">
-            <div className="flex items-center mb-4">
+            <div className="flex items-center justify-between mb-4">
                 <div className="w-8 h-8 flex-shrink-0 bg-tertiary text-primary rounded-full flex items-center justify-center font-bold text-sm">
-                    {hadith.hadithnumber}
+                    {hadith.hadithNumber}
                 </div>
+                <p className="text-sm text-secondary text-right">{hadith.englishNarrator}</p>
             </div>
 
-            <p className="text-right font-amiri text-2xl leading-loose text-primary mb-4">
-                {hadith.arabicText}
+            <p 
+                className="text-right font-amiri text-primary mb-4"
+                style={{ fontSize: `${settings.fontSize + 4}px`, lineHeight: settings.lineSpacing }}
+            >
+                {hadith.hadithArabic}
             </p>
-            <p className="text-primary leading-relaxed">
-                {hadith.englishText}
+            <p 
+                className={`text-primary ${settings.fontStyle === 'amiri' ? 'font-amiri' : ''}`}
+                style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineSpacing }}
+            >
+                {hadith.hadithEnglish}
             </p>
 
             <div className="border-t border-primary/20 mt-4 pt-3 flex justify-around items-center">
@@ -198,7 +356,7 @@ const HadithCard: React.FC<{ hadith: MergedHadith; collectionName: string; isFav
                     <CopyIcon className="w-5 h-5 mb-1" />
                     <span className="text-xs">Copy</span>
                 </button>
-                <button onClick={onFavorite} className="flex flex-col items-center text-secondary hover:text-primary transition-colors p-2">
+                <button onClick={onToggleFavorite} className="flex flex-col items-center text-secondary hover:text-primary transition-colors p-2">
                     {isFavorite ? <FilledStarIcon className="w-5 h-5 mb-1 text-yellow-400" /> : <StarIcon className="w-5 h-5 mb-1" />}
                     <span className="text-xs">Favorite</span>
                 </button>
@@ -211,12 +369,15 @@ const HadithCard: React.FC<{ hadith: MergedHadith; collectionName: string; isFav
     );
 };
 
-const HadithsList: React.FC<{ collectionName: string; sectionNumber: string; sectionName: string; onBack: () => void }> = ({ collectionName, sectionNumber, sectionName, onBack }) => {
-    const [hadiths, setHadiths] = useState<MergedHadith[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [favorites, setFavorites] = useState<string[]>([]);
-    const favoriteKey = 'hadith_favorites';
+const HadithsList: React.FC<{ bookSlug: string; chapterNumber: string; chapterName: string; onBack: () => void }> = ({ bookSlug, chapterNumber, chapterName, onBack }) => {
+    const url = `${API_BASE}/hadiths?apiKey=${API_KEY}&book=${bookSlug}&chapter=${chapterNumber}`;
+    const { data, loading, error } = useFetchData<{ hadiths: { data: HadithData[] } }>(url);
+    const hadiths = data?.hadiths?.data || [];
+    
+    const [favorites, setFavorites] = useState<{ [id: string]: HadithData }>({});
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const favoriteKey = 'hadith_favorites_v3';
 
     useEffect(() => {
         const savedFavorites = localStorage.getItem(favoriteKey);
@@ -225,69 +386,52 @@ const HadithsList: React.FC<{ collectionName: string; sectionNumber: string; sec
         }
     }, []);
 
-    const toggleFavorite = (hadithId: string) => {
-        const newFavorites = favorites.includes(hadithId)
-            ? favorites.filter(id => id !== hadithId)
-            : [...favorites, hadithId];
+    const toggleFavorite = (hadith: HadithData) => {
+        const hadithId = `${bookSlug}:${hadith.hadithNumber}`;
+        const newFavorites = { ...favorites };
+        if (newFavorites[hadithId]) {
+            delete newFavorites[hadithId];
+        } else {
+            newFavorites[hadithId] = hadith;
+        }
         setFavorites(newFavorites);
         localStorage.setItem(favoriteKey, JSON.stringify(newFavorites));
     };
 
-    const fetchHadiths = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        setHadiths([]);
-        const engUrl = `${API_BASE}/editions/${collectionName}/sections/${sectionNumber}.json`;
-        const araUrl = `${API_BASE}/editions/${collectionName.replace('eng-', 'ara-')}/sections/${sectionNumber}.json`;
-        try {
-            const [engResponse, araResponse] = await Promise.all([fetch(engUrl), fetch(araUrl)]);
-            
-            if (!engResponse.ok) throw new Error(`Failed to fetch English Hadiths: ${engResponse.statusText}`);
-            if (!araResponse.ok) throw new Error(`Failed to fetch Arabic Hadiths: ${araResponse.statusText}`);
-            
-            const engData = await engResponse.json();
-            const araData = await araResponse.json();
-
-            const araHadithsMap = new Map(araData.hadiths.map((h: any) => [h.hadithnumber, h]));
-
-            const mergedHadiths: MergedHadith[] = engData.hadiths.map((engHadith: any) => ({
-                hadithnumber: engHadith.hadithnumber,
-                arabicnumber: engHadith.arabicnumber,
-                englishText: engHadith.text,
-                // Fix: Cast the result of `araHadithsMap.get` to `any` to resolve the TypeScript error.
-                arabicText: (araHadithsMap.get(engHadith.hadithnumber) as any)?.text || 'Arabic text not available.',
-                grades: engHadith.grades,
-            }));
-
-            setHadiths(mergedHadiths);
-
-        } catch (err) {
-            console.error("Fetch Hadiths error:", err);
-            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
-        } finally {
-            setLoading(false);
-        }
-    }, [collectionName, sectionNumber]);
-    
-    useEffect(() => {
-        fetchHadiths();
-    }, [fetchHadiths]);
+    const filteredHadiths = useMemo(() => {
+        if (!hadiths) return [];
+        return hadiths.filter(h =>
+            h.hadithEnglish.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            h.hadithArabic.includes(searchTerm) ||
+            h.englishNarrator.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            h.hadithNumber.includes(searchTerm)
+        );
+    }, [hadiths, searchTerm]);
 
     return (
         <div className="animate-fade-in">
-            <PageHeader title={sectionName} onBack={onBack} />
+             <PageHeader 
+                title={chapterName} 
+                onBack={onBack}
+                rightAction={
+                    <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-secondary">
+                        <SlidersIcon className="w-6 h-6 text-primary" />
+                    </button>
+                }
+            />
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+            <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} placeholder="Search in this chapter..." />
             {loading && <LoadingSpinner />}
             {error && <ErrorMessage message={error} />}
             <div className="space-y-6">
-                {hadiths.map(hadith => {
-                    const hadithId = `${collectionName}:${hadith.hadithnumber}`;
+                {filteredHadiths.map(hadith => {
+                    const hadithId = `${bookSlug}:${hadith.hadithNumber}`;
                     return (
                         <HadithCard
                             key={hadithId}
                             hadith={hadith}
-                            collectionName={collectionName}
-                            isFavorite={favorites.includes(hadithId)}
-                            onFavorite={() => toggleFavorite(hadithId)}
+                            isFavorite={!!favorites[hadithId]}
+                            onToggleFavorite={() => toggleFavorite(hadith)}
                         />
                     );
                 })}
@@ -296,48 +440,123 @@ const HadithsList: React.FC<{ collectionName: string; sectionNumber: string; sec
     );
 };
 
+const FavoritesList: React.FC<{ bookSlug: string; bookName: string; onBack: () => void }> = ({ bookSlug, bookName, onBack }) => {
+    const favoriteKey = 'hadith_favorites_v3';
+    const [allFavorites, setAllFavorites] = useState<{ [id: string]: HadithData }>({});
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-const Hadith: React.FC = () => {
-    const [view, setView] = useState<'collections' | 'sections' | 'hadiths'>('collections');
-    const [selectedCollection, setSelectedCollection] = useState<{ name: string; title: string } | null>(null);
-    const [selectedSection, setSelectedSection] = useState<{ number: string; name: string } | null>(null);
+    useEffect(() => {
+        const savedFavorites = localStorage.getItem(favoriteKey);
+        if (savedFavorites) {
+            setAllFavorites(JSON.parse(savedFavorites));
+        }
+    }, []);
 
-    const handleCollectionSelect = (name: string, title: string) => {
-        setSelectedCollection({ name, title });
-        setView('sections');
+    const bookFavorites = useMemo(() => {
+        return (Object.values(allFavorites) as HadithData[]).filter(h => h.book.bookName === bookName);
+    }, [allFavorites, bookName]);
+    
+    const toggleFavorite = (hadith: HadithData) => {
+        const hadithId = `${bookSlug}:${hadith.hadithNumber}`;
+        const newFavorites = { ...allFavorites };
+        if (newFavorites[hadithId]) {
+            delete newFavorites[hadithId];
+        }
+        setAllFavorites(newFavorites);
+        localStorage.setItem(favoriteKey, JSON.stringify(newFavorites));
+    };
+    
+    return (
+        <div className="animate-fade-in">
+            <PageHeader 
+                title={`${bookName} - Favorites`}
+                onBack={onBack}
+                rightAction={
+                    <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-secondary">
+                        <SlidersIcon className="w-6 h-6 text-primary" />
+                    </button>
+                }
+            />
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+            {bookFavorites.length === 0 ? (
+                <div className="text-center text-secondary p-8 mt-10">
+                    <p className="font-semibold">No Favorites Yet</p>
+                    <p className="text-sm">You have no favorite hadiths in this book.</p>
+                </div>
+            ) : (
+                <div className="space-y-6 mt-4">
+                    {bookFavorites.map(hadith => {
+                        const hadithId = `${bookSlug}:${hadith.hadithNumber}`;
+                        return (
+                            <HadithCard
+                                key={hadithId}
+                                hadith={hadith}
+                                isFavorite={true}
+                                onToggleFavorite={() => toggleFavorite(hadith)}
+                            />
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const HadithContent: React.FC = () => {
+    const [view, setView] = useState<'books' | 'chapters' | 'hadiths' | 'favorites'>('books');
+    const [selectedBook, setSelectedBook] = useState<{ slug: string; name: string } | null>(null);
+    const [selectedChapter, setSelectedChapter] = useState<{ number: string; name: string } | null>(null);
+
+    const handleBookSelect = (slug: string, name: string) => {
+        setSelectedBook({ slug, name });
+        setView('chapters');
     };
 
-    const handleSectionSelect = (number: string, name: string) => {
-        setSelectedSection({ number, name });
+    const handleChapterSelect = (number: string, name: string) => {
+        setSelectedChapter({ number, name });
         setView('hadiths');
     };
     
+    const handleShowFavorites = () => {
+        setView('favorites');
+    };
+
     const handleBack = () => {
-        if (view === 'hadiths') {
-            setView('sections');
-            setSelectedSection(null);
-        } else if (view === 'sections') {
-            setView('collections');
-            setSelectedCollection(null);
+        if (view === 'hadiths' || view === 'favorites') {
+            setView('chapters');
+            setSelectedChapter(null);
+        } else if (view === 'chapters') {
+            setView('books');
+            setSelectedBook(null);
         }
     }
 
     const renderContent = () => {
         switch (view) {
+            case 'favorites':
+                return <FavoritesList bookSlug={selectedBook!.slug} bookName={selectedBook!.name} onBack={handleBack} />;
             case 'hadiths':
-                return <HadithsList collectionName={selectedCollection!.name} sectionNumber={selectedSection!.number} sectionName={selectedSection!.name} onBack={handleBack} />;
-            case 'sections':
-                return <SectionsList collectionName={selectedCollection!.name} collectionTitle={selectedCollection!.title} onSelect={handleSectionSelect} onBack={handleBack} />;
-            case 'collections':
+                return <HadithsList bookSlug={selectedBook!.slug} chapterNumber={selectedChapter!.number} chapterName={selectedChapter!.name} onBack={handleBack} />;
+            case 'chapters':
+                return <ChaptersList bookSlug={selectedBook!.slug} bookName={selectedBook!.name} onSelect={handleChapterSelect} onSelectFavorites={handleShowFavorites} onBack={handleBack} />;
+            case 'books':
             default:
-                return <CollectionsList onSelect={handleCollectionSelect} />;
+                return <BooksList onSelect={handleBookSelect} />;
         }
     };
-    
+
     return (
         <div className="p-4">
             {renderContent()}
         </div>
+    );
+};
+
+const Hadith: React.FC = () => {
+    return (
+        <HadithSettingsProvider>
+            <HadithContent />
+        </HadithSettingsProvider>
     );
 };
 
