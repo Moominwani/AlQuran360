@@ -3,6 +3,7 @@ export enum Page {
   Prayer = 'Prayer',
   Quran = 'Quran',
   Hadith = 'Hadith',
+  AIAssistant = 'AIAssistant',
 }
 
 export interface PrayerTimes {
