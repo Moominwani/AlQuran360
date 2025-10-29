@@ -7,9 +7,10 @@ import AudioPlayer from '../components/AudioPlayer';
 interface SurahDetailProps {
   surahNumber: number;
   onBack: () => void;
+  startPlayback?: boolean;
 }
 
-const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack }) => {
+const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPlayback }) => {
   const [surahData, setSurahData] = useState<SurahDetailData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -158,13 +159,25 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack }) => {
     handleCloseMenu();
   };
 
+  useEffect(() => {
+    if (startPlayback && surahData && surahData.ayahs.length > 0) {
+        const firstAyah = surahData.ayahs[0];
+        const allAyahs = surahData.ayahs;
+        
+        resetPlaybackModes();
+        setPlaybackQueue(allAyahs);
+        setCurrentAyah(firstAyah);
+        setIsPlaying(true);
+    }
+  }, [startPlayback, surahData]);
+
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p>Loading Surah...</p></div>;
   if (error) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p className="text-red-400">Error: {error}</p></div>;
   if (!surahData) return null;
 
   return (
-    <div className={`bg-primary text-primary min-h-screen ${currentAyah ? 'pb-40' : 'pb-4'}`}>
+    <div className={`bg-primary text-primary min-h-screen allow-selection ${currentAyah ? 'pb-40' : 'pb-4'}`}>
       <header className="sticky top-0 bg-primary z-10 p-4 flex items-center justify-between border-b border-primary">
         <button onClick={onBack} className="p-2"><BackIcon className="w-6 h-6 text-primary" /></button>
         <div className="text-center">

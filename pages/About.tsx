@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeftIcon } from '../contexts/MiscIcons';
+import { ChevronLeftIcon } from '../components/icons/MiscIcons';
 
 interface AboutProps {
   onBack: () => void;

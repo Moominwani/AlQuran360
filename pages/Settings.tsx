@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon } from '../contexts/MiscIcons';
+import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons/MiscIcons';
 import Appearance from './Appearance';
 import TimeFormat from './TimeFormat';
 

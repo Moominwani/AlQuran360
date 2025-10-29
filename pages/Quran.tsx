@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Surah } from '../types';
-import { SearchIcon, ChevronRightIcon } from '../contexts/MiscIcons';
+import { SearchIcon, ChevronRightIcon } from '../components/icons/MiscIcons';
 
 interface QuranProps {
   onSurahSelect: (surahNumber: number) => void;

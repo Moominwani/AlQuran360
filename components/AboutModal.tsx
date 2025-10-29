@@ -1,5 +1,5 @@
 import React from 'react';
-import { CloseIcon } from '../contexts/MiscIcons';
+import { CloseIcon } from './icons/MiscIcons';
 
 interface AboutModalProps {
   isOpen: boolean;

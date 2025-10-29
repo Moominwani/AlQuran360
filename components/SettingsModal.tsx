@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { SunIcon, MoonIcon, CloseIcon } from '../contexts/MiscIcons';
+import { SunIcon, MoonIcon, CloseIcon } from './icons/MiscIcons';
 
 interface SettingsModalProps {
   isOpen: boolean;

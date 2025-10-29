@@ -1,7 +1,7 @@
 import React from 'react';
 import { Page } from '../types';
 import { AIIcon } from './icons/NavIcons';
-import { CloseIcon } from '../contexts/MiscIcons';
+import { CloseIcon } from './icons/MiscIcons';
 
 export interface AIAction {
     type: 'navigate_page' | 'navigate_surah' | 'navigate_settings';

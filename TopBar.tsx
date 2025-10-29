@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreVerticalIcon } from './icons/MiscIcons';
+import { MoreVerticalIcon } from './components/icons/MiscIcons';
 
 interface TopBarProps {
     title: string;

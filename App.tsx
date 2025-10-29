@@ -10,12 +10,14 @@ import Settings from './pages/Settings';
 import Prayer from './pages/Prayer';
 import Hadith from './pages/Hadith';
 import AIAssistant from './pages/AIAssistant';
+import VoiceAssistant from './components/VoiceAssistant';
 
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.Home);
-  const [viewingSurah, setViewingSurah] = useState<number | null>(null);
+  const [viewingSurah, setViewingSurah] = useState<{ number: number; startPlayback: boolean; } | null>(null);
   const [locationReady, setLocationReady] = useState<boolean>(false);
   const [fullPageView, setFullPageView] = useState<'about' | 'settings' | null>(null);
+  const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
 
   useEffect(() => {
     const savedLocation = localStorage.getItem('userLocation');
@@ -24,9 +26,9 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleSurahSelect = (surahNumber: number) => {
+  const handleSurahSelect = (surahNumber: number, startPlayback: boolean = false) => {
     setFullPageView(null);
-    setViewingSurah(surahNumber);
+    setViewingSurah({ number: surahNumber, startPlayback });
   };
 
   const handleBackFromSurah = () => {
@@ -41,7 +43,7 @@ const App: React.FC = () => {
 
   const renderPage = () => {
     if (activePage === Page.Quran && viewingSurah) {
-      return <SurahDetail surahNumber={viewingSurah} onBack={handleBackFromSurah} />;
+      return <SurahDetail surahNumber={viewingSurah.number} onBack={handleBackFromSurah} startPlayback={viewingSurah.startPlayback} />;
     }
 
     switch (activePage) {
@@ -57,9 +59,9 @@ const App: React.FC = () => {
         return <AIAssistant
             onBack={() => changePage(Page.Home)}
             onNavigate={changePage}
-            onNavigateSurah={(surahNumber) => {
+            onNavigateSurah={(surahNumber, startPlayback) => {
                 setActivePage(Page.Quran);
-                handleSurahSelect(surahNumber);
+                handleSurahSelect(surahNumber, startPlayback);
             }}
             onNavigateSettings={() => setFullPageView('settings')}
         />;
@@ -86,7 +88,22 @@ const App: React.FC = () => {
       <main className={`flex-grow ${showNav ? 'pb-20' : ''}`}>
         {renderPage()}
       </main>
-      {showNav && <BottomNav activePage={activePage} setActivePage={changePage} onAiClick={() => changePage(Page.AIAssistant)} />}
+      {showNav && <BottomNav 
+        activePage={activePage} 
+        setActivePage={changePage} 
+        onAiShortClick={() => changePage(Page.AIAssistant)}
+        onAiLongPress={() => setIsVoiceAssistantOpen(true)}
+      />}
+      <VoiceAssistant
+        isOpen={isVoiceAssistantOpen}
+        onClose={() => setIsVoiceAssistantOpen(false)}
+        onNavigate={changePage}
+        onNavigateSurah={(surahNumber, startPlayback) => {
+            setActivePage(Page.Quran);
+            handleSurahSelect(surahNumber, startPlayback);
+        }}
+        onNavigateSettings={() => setFullPageView('settings')}
+      />
     </div>
   );
 };

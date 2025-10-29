@@ -30,6 +30,27 @@
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+        -webkit-touch-callout: none; /* iOS Safari */
+        -webkit-user-select: none;   /* Safari */
+        -khtml-user-select: none;    /* Konqueror HTML */
+        -moz-user-select: none;      /* Old versions of Firefox */
+        -ms-user-select: none;       /* Internet Explorer/Edge */
+        user-select: none;           /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+    }
+    
+    .allow-selection {
+      -webkit-touch-callout: default; /* iOS Safari */
+      -webkit-user-select: text;   /* Safari */
+      -khtml-user-select: text;    /* Konqueror HTML */
+      -moz-user-select: text;      /* Old versions of Firefox */
+      -ms-user-select: text;       /* Internet Explorer/Edge */
+      user-select: text;           /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+    }
+    .allow-selection * {
+      -webkit-user-select: inherit;
+      -moz-user-select: inherit;
+      -ms-user-select: inherit;
+      user-select: inherit;
     }
 
     .font-amiri {
@@ -68,7 +89,31 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
-
+    
+    /* AI Button Animations */
+    @keyframes ai-glow {
+        0%, 100% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.2), inset 0 0 5px rgba(255, 255, 255, 0.1); }
+        50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.7), 0 0 30px rgba(16, 185, 129, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.2); }
+    }
+    @keyframes ai-gradient-shift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    .ai-button-animated {
+        background-size: 200% 200% !important;
+        animation: ai-gradient-shift 8s ease infinite, ai-glow 4s ease-in-out infinite;
+    }
+    
+    /* New AI Icon Animation */
+    @keyframes ai-orbit {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .ai-orbit-container {
+        transform-origin: center;
+        animation: ai-orbit 5s linear infinite;
+    }
 
     /* Light Theme (Default) */
     .light {

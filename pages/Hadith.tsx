@@ -546,7 +546,7 @@ const HadithContent: React.FC = () => {
     };
 
     return (
-        <div className="p-4">
+        <div className="p-4 allow-selection">
             {renderContent()}
         </div>
     );

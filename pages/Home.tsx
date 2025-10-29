@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import TopBar from '../components/TopBar';
+import TopBar from '../TopBar';
 import LocationModal from '../components/LocationModal';
 import { Page, PrayerData } from '../types';
 import { useTimeFormat } from '../contexts/TimeFormatContext';

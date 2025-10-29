@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, FormEvent } from 'react';
-import { GoogleGenAI, FunctionDeclaration, Type, Part, Chat } from '@google/genai';
-import { Page } from '../types';
+import { Part } from '@google/genai';
 import { ChevronLeftIcon } from '../components/icons/MiscIcons';
 import { SendIcon, AIIcon } from '../components/icons/NavIcons';
+import { Page } from '../types';
+import { getIntentAndResponse } from '../utils/aiLogic';
 
 interface Message {
   role: 'user' | 'model';
@@ -12,94 +13,32 @@ interface Message {
 interface AIAssistantProps {
   onBack: () => void;
   onNavigate: (page: Page) => void;
-  onNavigateSurah: (surahNumber: number) => void;
+  onNavigateSurah: (surahNumber: number, startPlayback?: boolean) => void;
   onNavigateSettings: () => void;
 }
-
-const navigateToPage: FunctionDeclaration = {
-    name: 'navigate_to_page',
-    parameters: {
-        type: Type.OBJECT,
-        description: 'Navigates to one of the main pages of the app.',
-        properties: {
-            page: {
-                type: Type.STRING,
-                description: 'The name of the page to navigate to. Must be one of: Home, Prayer, Quran, Hadith.',
-                enum: ['Home', 'Prayer', 'Quran', 'Hadith']
-            },
-        },
-        required: ['page'],
-    },
-};
-
-const navigateToSurah: FunctionDeclaration = {
-    name: 'navigate_to_surah',
-    parameters: {
-        type: Type.OBJECT,
-        description: 'Navigates to a specific Surah (chapter) of the Quran by its number.',
-        properties: {
-            surahNumber: {
-                type: Type.NUMBER,
-                description: 'The number of the Surah to open, from 1 to 114.',
-            },
-        },
-        required: ['surahNumber'],
-    },
-};
-
-const navigateToSettings: FunctionDeclaration = {
-    name: 'navigate_to_settings',
-    parameters: { type: Type.OBJECT, properties: {}, description: 'Opens the application settings screen.' },
-};
-
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigateSurah, onNavigateSettings }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(true);
-    const [initializationError, setInitializationError] = useState<string | null>(null);
-    const chatRef = useRef<Chat | null>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
     const hints = [
-        "Open Surah Al-Fatihah",
-        "Show today's prayer times",
-        "Take me to the Hadith library",
-        "What is Surah Yasin's number?",
+        "Read Surah Al-Mulk",
+        "Show prayer times",
+        "Open Surah Masad",
+        "Change the theme",
+        "Hadith Library",
     ];
     
     useEffect(() => {
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-
-            chatRef.current = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                config: {
-                    tools: [{ functionDeclarations: [navigateToPage, navigateToSurah, navigateToSettings] }],
-                    systemInstruction: "You are a helpful assistant for an Islamic app called AlQuran360. You can help users navigate to different pages (Home, Prayer, Quran, Hadith), open specific Surahs by name or number, and go to settings. Your developer is Moomin Wani. When a user asks a question that can be answered with a function call, prioritize calling the function over providing a text response. Keep your text responses concise and friendly."
-                }
-            });
-
-            // Set initial welcome message after a short delay for animation
-            setTimeout(() => {
-                setMessages([{
-                    role: 'model',
-                    parts: [{ text: "Greetings! I am AlQuran360's AI Assistant. This app was lovingly crafted by **Moomin Wani**. How may I help you navigate or learn today?" }]
-                }]);
-                setIsLoading(false);
-            }, 500);
-        } catch (error) {
-            console.error("Error initializing AI:", error);
-            const detailedError = "Failed to initialize the AI Assistant. This could be due to a missing or invalid API key in your environment settings, or a network issue. Please verify your configuration.";
-            setInitializationError(detailedError);
-            setTimeout(() => {
-                setMessages([{
-                    role: 'model',
-                    parts: [{ text: "I'm having trouble starting up. Please check the error message below." }]
-                }]);
-                setIsLoading(false);
-            }, 500);
-        }
+        setTimeout(() => {
+            setMessages([{
+                role: 'model',
+                parts: [{ text: "Greetings! I am your guide to AlQuran360. This app was lovingly crafted by **Moomin Wani**. You can ask me to open a Surah, show prayer times, and more. How may I help you?" }]
+            }]);
+            setIsLoading(false);
+        }, 500);
     }, []);
 
     useEffect(() => {
@@ -109,58 +48,43 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
     }, [messages, isLoading]);
 
     const handleSendMessage = async (prompt: string) => {
-        if (!prompt.trim() || isLoading || initializationError) return;
+        if (!prompt.trim() || isLoading) return;
 
         const newUserMessage: Message = { role: 'user', parts: [{ text: prompt }] };
         setMessages(prev => [...prev, newUserMessage]);
         setIsLoading(true);
+        setInputText('');
 
-        try {
-            if (!chatRef.current) throw new Error("AI Chat is not initialized. Cannot send message.");
-            
-            const response = await chatRef.current.sendMessage({ message: prompt });
+        const { responseText, action } = await getIntentAndResponse(prompt);
 
-            if (response.functionCalls && response.functionCalls.length > 0) {
-                for (const fc of response.functionCalls) {
-                    switch (fc.name) {
-                        case 'navigate_to_page':
-                            onNavigate(fc.args.page as Page);
-                            break;
-                        case 'navigate_to_surah':
-                            onNavigateSurah(fc.args.surahNumber as number);
-                            break;
-                        case 'navigate_to_settings':
-                            onNavigateSettings();
-                            break;
-                    }
+        const newModelMessage: Message = { role: 'model', parts: [{ text: responseText }] };
+        setMessages(prev => [...prev, newModelMessage]);
+        setIsLoading(false);
+
+        if (action && action.type !== 'info') {
+            setTimeout(() => {
+                switch (action.type) {
+                    case 'navigate_page':
+                        onNavigate(action.payload.page);
+                        break;
+                    case 'navigate_surah':
+                        onNavigateSurah(action.payload.surahNumber, action.payload.startPlayback);
+                        break;
+                    case 'navigate_settings':
+                        onNavigateSettings();
+                        break;
                 }
-                // We don't add a model response here because the app state will change.
-            } else if (response.text) {
-                const newModelMessage: Message = { role: 'model', parts: [{ text: response.text }] };
-                setMessages(prev => [...prev, newModelMessage]);
-            } else {
-                 const errorMessage: Message = { role: 'model', parts: [{ text: "Sorry, I couldn't get a response. Please try asking in a different way." }] };
-                 setMessages(prev => [...prev, errorMessage]);
-            }
-
-        } catch (error) {
-            console.error("Error communicating with AI:", error);
-            const errorMessage: Message = { role: 'model', parts: [{ text: "Sorry, I encountered an error. Please try again." }] };
-            setMessages(prev => [...prev, errorMessage]);
-        } finally {
-            setIsLoading(false);
+            }, 800);
         }
     };
 
     const handleFormSubmit = (e: FormEvent) => {
         e.preventDefault();
         handleSendMessage(inputText);
-        setInputText('');
     };
     
     const handleHintClick = (hint: string) => {
         handleSendMessage(hint);
-        setInputText('');
     }
 
     return (
@@ -181,8 +105,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
                         </div>
                     </div>
                 ))}
-                 {isLoading && messages.length > 0 && !initializationError && (
-                    <div className="flex items-end gap-2 justify-start">
+                 {isLoading && messages.length > 0 && (
+                    <div className="flex items-end gap-2 justify-start animate-fade-in">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center flex-shrink-0"><AIIcon className="w-5 h-5 text-white" /></div>
                         <div className="p-3 rounded-2xl bg-secondary rounded-bl-none">
                             <div className="flex space-x-1">
@@ -195,22 +119,13 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
                 )}
             </div>
             
-            {initializationError ? (
-                <div className="px-4 pb-4">
-                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                        <p className="font-bold mb-1">Initialization Error</p>
-                        <p>{initializationError}</p>
-                    </div>
+            <div className="px-4 pb-2">
+                <div className="flex overflow-x-auto space-x-2 py-2 scrollbar-hide">
+                    {hints.map(hint => (
+                        <button key={hint} onClick={() => handleHintClick(hint)} disabled={isLoading} className="px-3 py-1.5 bg-tertiary text-primary rounded-full text-sm font-medium whitespace-nowrap disabled:opacity-50">{hint}</button>
+                    ))}
                 </div>
-            ) : (
-                <div className="px-4 pb-2">
-                    <div className="flex overflow-x-auto space-x-2 py-2 scrollbar-hide">
-                        {hints.map(hint => (
-                            <button key={hint} onClick={() => handleHintClick(hint)} className="px-3 py-1.5 bg-tertiary text-primary rounded-full text-sm font-medium whitespace-nowrap">{hint}</button>
-                        ))}
-                    </div>
-                </div>
-            )}
+            </div>
 
             <div className="p-4 bg-primary sticky bottom-0">
                 <form onSubmit={handleFormSubmit} className="flex items-center gap-2">
@@ -218,14 +133,14 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
-                        placeholder={initializationError ? "AI Assistant is unavailable" : "Ask me anything..."}
-                        disabled={!!initializationError || isLoading}
+                        placeholder="e.g., 'Open Surah 55'"
+                        disabled={isLoading}
                         className="flex-grow bg-secondary border border-primary/20 rounded-full py-3 px-5 text-primary placeholder-color focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50"
                         aria-label="Chat input"
                     />
                     <button
                         type="submit"
-                        disabled={isLoading || !inputText.trim() || !!initializationError}
+                        disabled={isLoading || !inputText.trim()}
                         className="w-12 h-12 flex-shrink-0 rounded-full bg-green-500 text-white flex items-center justify-center disabled:bg-gray-500 transition-all"
                         aria-label="Send message"
                     >

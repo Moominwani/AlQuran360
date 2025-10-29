@@ -2,6 +2,7 @@
   "name": "Copy of AlQuran360",
   "description": "An Islamic application featuring accurate prayer times based on your location, a complete Quran explorer, a Hadith library, and a Tasbeeh counter to help with your daily dhikr.",
   "requestFramePermissions": [
-    "geolocation"
+    "geolocation",
+    "microphone"
   ]
 }
