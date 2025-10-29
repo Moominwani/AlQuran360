@@ -15,7 +15,7 @@ interface VoiceAssistantProps {
 const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavigate, onNavigateSurah, onNavigateSettings }) => {
-    const [status, setStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking'>('idle');
+    const [status, setStatus] = useState<'idle' | 'starting' | 'listening' | 'processing' | 'speaking'>('idle');
     const [transcript, setTranscript] = useState('');
     
     const recognitionRef = useRef<any>(null);
@@ -46,13 +46,14 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
         recognition.onstart = () => setStatus('listening');
 
         recognition.onend = () => {
-            if (statusRef.current === 'listening') {
+            if (statusRef.current === 'listening' || statusRef.current === 'starting') {
                  setStatus('idle');
             }
         };
         
         recognition.onerror = (event: any) => {
             console.error('Speech recognition error:', event.error);
+            setStatus('idle');
         };
 
         const processCommand = async (command: string) => {
@@ -117,33 +118,32 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
 
         return () => {
             if (recognitionRef.current) {
-                recognitionRef.current.stop();
+                recognitionRef.current.abort();
             }
         };
     }, []);
 
-    // Effect to control starting/stopping recognition
+    // Effect to reset state when modal is opened or closed
     useEffect(() => {
-        const recognition = recognitionRef.current;
-        if (!recognition) return;
-
         if (isOpen) {
             setTranscript('');
             setStatus('idle');
         } else {
-            recognition.stop();
+            recognitionRef.current?.abort();
             window.speechSynthesis.cancel();
         }
     }, [isOpen]);
     
-    // Effect that triggers start, depends on status to avoid race conditions
+    // Effect that triggers start based on state, preventing race conditions.
     useEffect(() => {
         const recognition = recognitionRef.current;
         if (isOpen && status === 'idle' && recognition) {
+            setStatus('starting');
             try {
                 recognition.start();
             } catch (e) {
                 console.error("Recognition start error:", e);
+                setStatus('idle');
             }
         }
     }, [isOpen, status]);
@@ -152,6 +152,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
 
     const getStatusMessage = () => {
         switch(status) {
+            case 'starting':
             case 'listening': return 'Listening...';
             case 'processing': return 'Thinking...';
             case 'speaking': return 'Speaking...';
@@ -167,7 +168,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, onClose, onNavi
             
             <div className="flex-grow flex flex-col items-center justify-center text-center w-full">
                 <div className="relative w-48 h-48 flex items-center justify-center mb-8">
-                    {status === 'listening' && (
+                    {(status === 'listening' || status === 'starting') && (
                         <>
                             <div className="absolute w-full h-full rounded-full bg-green-500/20 animate-pulse [animation-duration:1.5s]"></div>
                             <div className="absolute w-2/3 h-2/3 rounded-full bg-green-500/20 animate-pulse [animation-duration:1.5s] [animation-delay:-0.5s]"></div>
