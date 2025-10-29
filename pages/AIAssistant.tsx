@@ -57,7 +57,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(true);
-    const aiRef = useRef<GoogleGenAI | null>(null);
+    const [initializationError, setInitializationError] = useState<string | null>(null);
     const chatRef = useRef<Chat | null>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +71,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
     useEffect(() => {
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            aiRef.current = ai;
 
             chatRef.current = ai.chats.create({
                 model: 'gemini-2.5-flash',
@@ -91,10 +90,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
             }, 500);
         } catch (error) {
             console.error("Error initializing AI:", error);
+            const detailedError = "Failed to initialize the AI Assistant. This could be due to a missing or invalid API key in your environment settings, or a network issue. Please verify your configuration.";
+            setInitializationError(detailedError);
             setTimeout(() => {
                 setMessages([{
                     role: 'model',
-                    parts: [{ text: "I'm having trouble starting up. This might be due to an issue with the API key or network connection. Please check the setup and try again." }]
+                    parts: [{ text: "I'm having trouble starting up. Please check the error message below." }]
                 }]);
                 setIsLoading(false);
             }, 500);
@@ -108,14 +109,14 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
     }, [messages, isLoading]);
 
     const handleSendMessage = async (prompt: string) => {
-        if (!prompt.trim() || isLoading) return;
+        if (!prompt.trim() || isLoading || initializationError) return;
 
         const newUserMessage: Message = { role: 'user', parts: [{ text: prompt }] };
         setMessages(prev => [...prev, newUserMessage]);
         setIsLoading(true);
 
         try {
-            if (!chatRef.current) throw new Error("AI Chat not initialized");
+            if (!chatRef.current) throw new Error("AI Chat is not initialized. Cannot send message.");
             
             const response = await chatRef.current.sendMessage({ message: prompt });
 
@@ -137,6 +138,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
             } else if (response.text) {
                 const newModelMessage: Message = { role: 'model', parts: [{ text: response.text }] };
                 setMessages(prev => [...prev, newModelMessage]);
+            } else {
+                 const errorMessage: Message = { role: 'model', parts: [{ text: "Sorry, I couldn't get a response. Please try asking in a different way." }] };
+                 setMessages(prev => [...prev, errorMessage]);
             }
 
         } catch (error) {
@@ -177,7 +181,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
                         </div>
                     </div>
                 ))}
-                 {isLoading && messages.length > 0 && (
+                 {isLoading && messages.length > 0 && !initializationError && (
                     <div className="flex items-end gap-2 justify-start">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center flex-shrink-0"><AIIcon className="w-5 h-5 text-white" /></div>
                         <div className="p-3 rounded-2xl bg-secondary rounded-bl-none">
@@ -191,13 +195,22 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
                 )}
             </div>
             
-            <div className="px-4 pb-2">
-                <div className="flex overflow-x-auto space-x-2 py-2 scrollbar-hide">
-                    {hints.map(hint => (
-                        <button key={hint} onClick={() => handleHintClick(hint)} className="px-3 py-1.5 bg-tertiary text-primary rounded-full text-sm font-medium whitespace-nowrap">{hint}</button>
-                    ))}
+            {initializationError ? (
+                <div className="px-4 pb-4">
+                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                        <p className="font-bold mb-1">Initialization Error</p>
+                        <p>{initializationError}</p>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div className="px-4 pb-2">
+                    <div className="flex overflow-x-auto space-x-2 py-2 scrollbar-hide">
+                        {hints.map(hint => (
+                            <button key={hint} onClick={() => handleHintClick(hint)} className="px-3 py-1.5 bg-tertiary text-primary rounded-full text-sm font-medium whitespace-nowrap">{hint}</button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="p-4 bg-primary sticky bottom-0">
                 <form onSubmit={handleFormSubmit} className="flex items-center gap-2">
@@ -205,12 +218,14 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onBack, onNavigate, onNavigat
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
-                        placeholder="Ask me anything..."
-                        className="flex-grow bg-secondary border border-primary/20 rounded-full py-3 px-5 text-primary placeholder-color focus:outline-none focus:ring-1 focus:ring-green-500"
+                        placeholder={initializationError ? "AI Assistant is unavailable" : "Ask me anything..."}
+                        disabled={!!initializationError || isLoading}
+                        className="flex-grow bg-secondary border border-primary/20 rounded-full py-3 px-5 text-primary placeholder-color focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50"
+                        aria-label="Chat input"
                     />
                     <button
                         type="submit"
-                        disabled={isLoading || !inputText.trim()}
+                        disabled={isLoading || !inputText.trim() || !!initializationError}
                         className="w-12 h-12 flex-shrink-0 rounded-full bg-green-500 text-white flex items-center justify-center disabled:bg-gray-500 transition-all"
                         aria-label="Send message"
                     >
