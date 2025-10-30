@@ -400,7 +400,7 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in">
                     <div className="bg-tertiary rounded-2xl w-full max-w-md p-6 text-primary">
                         <h2 className="text-xl font-bold mb-4">Location Access Denied</h2>
-                        <p className="text-secondary my-4">You have previously denied location access. To use this feature, please enable location permissions for this site in your device's settings.</p>
+                        <p className="text-secondary my-4">You have previously denied location access. To use this feature, please enable location permissions in your device's settings.</p>
                         <button
                             onClick={() => setShowPermissionDeniedModal(false)}
                             className="w-full accent-bg text-inverted font-bold py-2 px-4 rounded-lg"

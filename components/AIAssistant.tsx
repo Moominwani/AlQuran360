@@ -24,6 +24,11 @@ interface ChatSession {
     timestamp: number;
 }
 
+interface PendingQuestion {
+    type: string;
+    data: any;
+}
+
 const SuggestionChip: React.FC<{ text: string; onClick: () => void; }> = ({ text, onClick }) => (
     <button
         onClick={onClick}
@@ -79,6 +84,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
   const [isTyping, setIsTyping] = useState(false);
   const [chatState, setChatState] = useState(getInitialSessions);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [pendingQuestion, setPendingQuestion] = useState<PendingQuestion | null>(null);
 
   const { sessions, activeId } = chatState;
   const activeChat = sessions.find(s => s.id === activeId);
@@ -129,8 +135,24 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
     const currentMessages = activeChat?.messages || [];
     updateMessagesInSession([...currentMessages, userMessage]);
     setIsTyping(true);
+    
+    const isNewQuestion = /(?:verse|ayah|ayat|surah|play|open|read|go to|what|who|how|where|when|why)/.test(command.toLowerCase());
 
-    const action = parseCommand(command);
+    let action;
+    // If there's a pending question AND the new command doesn't look like a new question, treat it as an answer.
+    if (pendingQuestion?.type === 'ayah_number_missing_surah' && !isNewQuestion) {
+        const combinedCommand = `verse ${pendingQuestion.data.ayahNumber} of ${command}`;
+        action = parseCommand(combinedCommand);
+        // If the combined command is still unknown, it means the user's answer was not a valid surah.
+        if (action.type === 'unknown') {
+            action.responseText = "I'm sorry, I couldn't find that surah. Let's start over. How can I help you?";
+        }
+        setPendingQuestion(null); // Clear the pending question after attempting to answer it.
+    } else {
+        // Otherwise, it's a new command. Discard any pending question.
+        setPendingQuestion(null);
+        action = parseCommand(command);
+    }
 
     setTimeout(() => {
       setIsTyping(false);
@@ -139,10 +161,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
       const updatedMessages = [...(activeChat?.messages || []), userMessage, botResponse];
       updateMessagesInSession(updatedMessages);
 
-      if (action.type !== 'unknown' && action.type !== 'greet') {
+      if (action.type === 'clarification_needed') {
+          setPendingQuestion(action.payload.pendingQuestion);
+      } else if (action.type !== 'unknown' && action.type !== 'greet' && action.type !== 'help') {
         setTimeout(() => onAction(action), 800);
       }
-    }, 1000 + Math.random() * 1000);
+    }, 1000 + Math.random() * 500);
 
     setInputValue('');
   };
@@ -158,17 +182,20 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
         sessions: [newSession, ...prevState.sessions],
         activeId: newSession.id
     }));
+    setPendingQuestion(null);
     setIsHistoryOpen(false);
   };
 
   const handleSelectChat = (id: number) => {
     setChatState(prevState => ({ ...prevState, activeId: id }));
+    setPendingQuestion(null);
     setIsHistoryOpen(false);
   };
 
   const handleDeleteAllHistory = () => {
       const newSession: ChatSession = { id: Date.now(), messages: [initialBotMessage], timestamp: Date.now() };
       setChatState({ sessions: [newSession], activeId: newSession.id });
+      setPendingQuestion(null);
       setIsHistoryOpen(false);
   };
 
@@ -242,10 +269,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
        <footer className="flex-shrink-0 p-2 bg-primary border-t border-primary">
             {showWelcomeScreen && (
                 <div className="max-w-2xl mx-auto mb-3 flex flex-wrap justify-center gap-2 p-2">
-                    <SuggestionChip text="Read Surah Al-Mulk" onClick={() => handleCommand('Read Surah Al-Mulk')} />
-                    <SuggestionChip text="Prayer times" onClick={() => handleCommand('Show prayer times for tomorrow')} />
-                    <SuggestionChip text="Open Hadith books" onClick={() => handleCommand('Open Hadith books')} />
-                    <SuggestionChip text="Who developed this app?" onClick={() => handleCommand('who developed this app?')} />
+                    <SuggestionChip text="Who developed this app?" onClick={() => handleCommand('Who developed this app?')} />
+                    <SuggestionChip text="How many verses are in Al-Baqarah?" onClick={() => handleCommand('How many verses are in Al-Baqarah?')} />
+                    <SuggestionChip text="Play Surah Yasin" onClick={() => handleCommand('Play Surah Yasin')} />
+                    <SuggestionChip text="What can you do?" onClick={() => handleCommand('What can you do?')} />
                 </div>
             )}
             <form onSubmit={handleSubmit} className="flex items-center space-x-2 max-w-2xl mx-auto bg-secondary rounded-full px-4 py-1 shadow-md">

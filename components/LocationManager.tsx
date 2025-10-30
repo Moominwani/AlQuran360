@@ -78,7 +78,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
         return (
             <div className="bg-[#143d31] min-h-screen flex flex-col items-center justify-center p-8 text-white text-center">
                 <h1 className="text-4xl font-bold mb-4">Location Access Denied</h1>
-                <p className="text-lg text-gray-300 mb-8">Please set your city manually, or enable location permissions in your browser settings and reload.</p>
+                <p className="text-lg text-gray-300 mb-8">Please set your city manually, or enable location access in your device's settings and reload.</p>
                 <div className="w-full max-w-xs space-y-4">
                     <button 
                         onClick={handleDeny}
@@ -94,8 +94,8 @@ const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
 
     return (
         <div className="bg-[#143d31] min-h-screen flex flex-col items-center justify-center p-8 text-white text-center">
-            <h1 className="text-4xl font-bold mb-4">Welcome to AlQuran360</h1>
-            <p className="text-lg text-gray-300 mb-8">To provide you with accurate prayer times, please grant location access or set your city manually.</p>
+            <h1 className="text-4xl font-bold mb-4">Location Required</h1>
+            <p className="text-lg text-gray-300 mb-8">To calculate accurate prayer times, location access is required. You can also set it manually.</p>
             
             <div className="w-full max-w-xs space-y-4">
                 <button 
@@ -112,7 +112,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
                 </button>
             </div>
             
-            <p className="text-xs text-gray-400 mt-8">Your location data is used only to calculate prayer times and is not stored or shared.</p>
+            <p className="text-xs text-gray-400 mt-8">Location data is used only to calculate prayer times and is not stored or shared.</p>
         </div>
     );
 };

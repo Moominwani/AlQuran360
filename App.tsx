@@ -154,6 +154,7 @@ const App: React.FC = () => {
   
   const showNav = !viewingSurah && activePage !== Page.AIAssistant;
   const showAiButton = activePage !== Page.AIAssistant && !isVoiceAssistantOpen;
+  const isTucked = !!viewingSurah || activePage === Page.Hadith;
 
   return (
     <div className="min-h-screen font-sans flex flex-col bg-primary">
@@ -173,6 +174,7 @@ const App: React.FC = () => {
         <FloatingAIButton
           onClick={() => changePage(Page.AIAssistant)}
           onLongPress={() => setIsVoiceAssistantOpen(true)}
+          isTucked={isTucked}
         />
       )}
       

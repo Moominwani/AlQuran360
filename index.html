@@ -134,6 +134,17 @@
         animation: autoscroll-x var(--scroll-duration, 10s) ease-in-out infinite;
     }
 
+    /* AI Button Tooltip Animation */
+    @keyframes tooltip-fade-in-out {
+      0% { opacity: 0; transform: scale(0.9); }
+      10% { opacity: 1; transform: scale(1); }
+      90% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.9); }
+    }
+    .animate-tooltip {
+      animation: tooltip-fade-in-out 6s ease-in-out forwards;
+    }
+
 
     /* Light Theme (Default) */
     .light {

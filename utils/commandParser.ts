@@ -78,7 +78,7 @@ const findBestSurahMatch = (query: string): { name: string; number: number } | n
 
 
 export type AppAction = {
-  type: 'navigate_page' | 'navigate_surah' | 'greet' | 'unknown';
+  type: 'navigate_page' | 'navigate_surah' | 'greet' | 'help' | 'clarification_needed' | 'unknown';
   payload: any;
   responseText?: string;
 }
@@ -90,11 +90,30 @@ export const parseCommand = (command: string): AppAction => {
     if (/\b(hello|hi|hey|salam|as-salamu alaykum)\b/.test(lowerCommand)) {
         return { type: 'greet', payload: {}, responseText: "Wa Alaikum Assalam! How can I help you?" };
     }
-    if (/\b(how are you|how's it going)\b/.test(lowerCommand)) {
-        return { type: 'greet', payload: {}, responseText: "I'm doing well, Alhamdulillah. Thank you for asking!" };
-    }
     if (/\b(thank you|thanks|shukran|jazakallah)\b/.test(lowerCommand)) {
         return { type: 'greet', payload: {}, responseText: "You're welcome! Wa iyyakum." };
+    }
+    
+    // === Help Command ===
+    if (/\b(help|commands|what can you do|what can i ask)\b/.test(lowerCommand)) {
+        const helpText = `I can help you interact with the app. Try asking me to:
+
+**📖 Quran**
+• "Read Surah Al-Mulk"
+• "Play Surah Ar-Rahman"
+• "Open verse 15 of Yasin"
+• "How many verses are in Al-Baqarah?"
+• "Which is the longest surah?"
+
+**🧭 Navigation**
+• "Open Hadith books"
+• "Go to my Tasbeeh counter"
+• "Show me the Qibla compass"
+• "Go to appearance settings"
+
+**ℹ️ App Info**
+• "Who developed this app?"`;
+        return { type: 'help', payload: {}, responseText: helpText };
     }
     
     // === About Developer ===
@@ -106,7 +125,7 @@ export const parseCommand = (command: string): AppAction => {
         };
     }
     
-    // === Islamic Knowledge ===
+    // === In-App Knowledge ===
     if (/pillar/.test(lowerCommand) && /islam/.test(lowerCommand)) {
         return { type: 'greet', payload: {}, responseText: "The Five Pillars of Islam are:\n1. Shahada (Faith)\n2. Salah (Prayer)\n3. Zakat (Charity)\n4. Sawm (Fasting)\n5. Hajj (Pilgrimage to Mecca)" };
     }
@@ -114,7 +133,13 @@ export const parseCommand = (command: string): AppAction => {
         return { type: 'greet', payload: {}, responseText: "The 12 months in the Islamic calendar are: Muharram, Safar, Rabi' al-awwal, Rabi' al-thani, Jumada al-awwal, Jumada al-thani, Rajab, Sha'ban, Ramadan, Shawwal, Dhu al-Qi'dah, Dhu al-Hijjah." };
     }
     
-    // === Quran Facts & Info ===
+    // === Quran Facts & Info (from app data) ===
+    if (/heart of the quran/.test(lowerCommand)) {
+        return { type: 'greet', payload: {}, responseText: "Surah Ya-Sin is often referred to as the heart of the Quran." };
+    }
+    if (/surah without bismillah/.test(lowerCommand)) {
+        return { type: 'greet', payload: {}, responseText: "Surah At-Tawbah (Chapter 9) is the only surah in the Quran that does not begin with the Bismillah." };
+    }
     if (/longest surah/.test(lowerCommand)) {
         return { type: 'greet', payload: {}, responseText: "The longest surah in the Quran is Al-Baqarah, with 286 verses." };
     }
@@ -188,7 +213,7 @@ export const parseCommand = (command: string): AppAction => {
     }
     
     // Step 2: Clean up common command words to isolate the surah name
-    const actionVerbsAndNouns = ['read', 'open', 'load', 'recite', 'play', 'listen to', 'show me', 'go to', 'take me to', 'surah', 'chapter'];
+    const actionVerbsAndNouns = ['read', 'open', 'load', 'recite', 'play', 'listen to', 'show me', 'go to', 'take me to', 'surah', 'chapter', 'of'];
     const cleanupRegex = new RegExp(`\\b(${actionVerbsAndNouns.join('|')})\\b`, 'g');
     const surahQuery = commandToParseForSurah.replace(cleanupRegex, '').trim();
     
@@ -202,6 +227,13 @@ export const parseCommand = (command: string): AppAction => {
         
         let responseText = '';
         if (ayahNumber) {
+            if (ayahNumber <= 0 || ayahNumber > metadata.numberOfAyahs) {
+                return {
+                    type: 'greet', // Use a non-navigational type
+                    payload: {},
+                    responseText: `Apologies, but ${surahName} only has ${metadata.numberOfAyahs} verses. Please ask for a verse number within this range.`
+                };
+            }
             responseText = `Showing verse ${ayahNumber} of ${surahName}.`;
         } else {
             responseText = startPlayback ? `Playing ${surahName}.` : `Opening ${surahName}.`;
@@ -218,6 +250,17 @@ export const parseCommand = (command: string): AppAction => {
         };
     }
     
+    // Step 4: Handle cases where only an ayah number was provided
+    if (ayahNumber && !surah) {
+        return {
+            type: 'clarification_needed',
+            payload: { 
+                pendingQuestion: { type: 'ayah_number_missing_surah', data: { ayahNumber } } 
+            },
+            responseText: `Of course. Which surah would you like to see verse ${ayahNumber} of?`
+        };
+    }
+
     // Check for a number-only command as a final surah check
     const num = parseInt(lowerCommand, 10);
     if (!isNaN(num) && lowerCommand.match(/^\d+$/) && num >= 1 && num <= 114) {
@@ -232,5 +275,5 @@ export const parseCommand = (command: string): AppAction => {
 
 
     // === Fallback ===
-    return { type: 'unknown', payload: {}, responseText: "Sorry, I didn't quite understand that. Please try another command like 'open surah yasin'." };
+    return { type: 'unknown', payload: {}, responseText: "Sorry, I didn't quite understand that. You can ask 'what can you do?' to see a list of commands." };
 };
