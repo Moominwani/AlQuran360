@@ -24,6 +24,10 @@
       --font-amiri: 'Amiri', serif;
     }
 
+    html {
+      background-color: var(--bg-primary);
+    }
+
     body {
         font-family: var(--font-sans);
         transition: background-color 0.5s ease, color 0.5s ease;
@@ -114,6 +118,22 @@
         transform-origin: center;
         animation: ai-orbit 5s linear infinite;
     }
+    
+    /* Autoscroll animation for long text */
+    @keyframes autoscroll-x {
+      0% { transform: translateX(0); }
+      10% { transform: translateX(0); } /* Initial pause */
+      45% { transform: translateX(var(--scroll-amount, 0px)); } /* Scroll to end */
+      55% { transform: translateX(var(--scroll-amount, 0px)); } /* Pause at end */
+      90% { transform: translateX(0); } /* Scroll back to start */
+      100% { transform: translateX(0); }
+    }
+
+    .autoscroll-on-overflow {
+        will-change: transform;
+        animation: autoscroll-x var(--scroll-duration, 10s) ease-in-out infinite;
+    }
+
 
     /* Light Theme (Default) */
     .light {

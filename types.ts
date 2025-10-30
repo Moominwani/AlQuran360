@@ -23,6 +23,9 @@ export interface PrayerData {
       year: string;
     };
   };
+  meta: {
+    timezone: string;
+  };
 }
 
 export interface Surah {

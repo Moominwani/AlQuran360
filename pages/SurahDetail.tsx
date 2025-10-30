@@ -8,9 +8,10 @@ interface SurahDetailProps {
   surahNumber: number;
   onBack: () => void;
   startPlayback?: boolean;
+  ayahNumber?: number;
 }
 
-const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPlayback }) => {
+const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPlayback, ayahNumber }) => {
   const [surahData, setSurahData] = useState<SurahDetailData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +25,8 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   const [playbackQueue, setPlaybackQueue] = useState<Ayah[]>([]);
   const [repeatAyah, setRepeatAyah] = useState(false);
   const [replayTrigger, setReplayTrigger] = useState(0);
+  
+  const ayahRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     const fetchSurahDetail = async () => {
@@ -53,6 +56,17 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
     };
     fetchSurahDetail();
   }, [surahNumber]);
+
+  useEffect(() => {
+    if (surahData && ayahNumber && ayahRefs.current[ayahNumber - 1]) {
+        setTimeout(() => { // Timeout to ensure render is complete
+            ayahRefs.current[ayahNumber - 1]?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+        }, 300); // Shorter delay
+    }
+  }, [surahData, ayahNumber]);
 
   const handleAyahClick = (e: React.MouseEvent, ayah: Ayah) => {
     e.stopPropagation();
@@ -195,11 +209,13 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
             </p>
         </div>
 
-        {surahData.ayahs.map((ayah) => (
+        {surahData.ayahs.map((ayah, index) => (
           <div 
             key={ayah.number} 
+            ref={el => { ayahRefs.current[ayah.numberInSurah - 1] = el; }}
             onClick={(e) => handleAyahClick(e, ayah)}
             className={`cursor-pointer rounded-lg p-2 transition-colors duration-300 border-b border-primary pb-6
+              ${ayahNumber === ayah.numberInSurah ? 'bg-yellow-500/20' : ''}
               ${currentAyah?.number === ayah.number ? 'bg-green-500/20' : ''}
               ${selectedAyah?.number === ayah.number ? 'bg-blue-500/20' : ''}
             `}

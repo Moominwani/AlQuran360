@@ -1,22 +1,6 @@
-import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
-import { ChevronLeftIcon, StarIcon, FilledStarIcon, BookOpenIcon, SearchIcon } from '../components/icons/MiscIcons';
+import React, { useState, useEffect, useMemo, createContext, useContext, useRef } from 'react';
+import { ChevronLeftIcon, StarIcon, FilledStarIcon, BookOpenIcon, SearchIcon, SlidersIcon } from '../components/icons/MiscIcons';
 import { CopyIcon, ShareIcon } from '../components/icons/PlayerIcons';
-
-// SlidersIcon might not exist, let's create a simple one if it's not in MiscIcons.
-const SlidersIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-        <line x1="4" y1="21" x2="4" y2="14"></line>
-        <line x1="4" y1="10" x2="4" y2="3"></line>
-        <line x1="12" y1="21" x2="12" y2="12"></line>
-        <line x1="12" y1="8" x2="12" y2="3"></line>
-        <line x1="20" y1="21" x2="20" y2="16"></line>
-        <line x1="20" y1="12" x2="20" y2="3"></line>
-        <line x1="1" y1="14" x2="7" y2="14"></line>
-        <line x1="9" y1="8" x2="15" y2="8"></line>
-        <line x1="17" y1="16" x2="23" y2="16"></line>
-    </svg>
-);
-
 
 // --- API Configuration ---
 const API_KEY = '$2y$10$b7nXn4eOT5QD9c3dvsPBsOloRdSlnwWD7EZ8xyKHHPuR6MNWTIF';
@@ -125,19 +109,58 @@ const SearchBar: React.FC<{ searchTerm: string; setSearchTerm: (term: string) =>
     </div>
 );
 
-const PageHeader: React.FC<{ title: string; onBack?: () => void; rightAction?: React.ReactNode }> = ({ title, onBack, rightAction }) => (
-    <header className="flex items-center justify-between mb-2 sticky top-0 bg-primary py-4 z-10">
-        <div className="flex items-center">
+const PageHeader: React.FC<{ title: string; onBack?: () => void; rightAction?: React.ReactNode }> = ({ title, onBack, rightAction }) => {
+    const [isOverflowing, setIsOverflowing] = useState(false);
+    const titleRef = useRef<HTMLHeadingElement>(null);
+
+    useEffect(() => {
+        const checkOverflow = () => {
+            const el = titleRef.current;
+            if (el) {
+                const hasOverflow = el.scrollWidth > el.clientWidth;
+                if (hasOverflow) {
+                    const scrollAmount = el.scrollWidth - el.clientWidth;
+                    // Adjust speed based on how much text is hidden. Base 5s + 1s per 50px overflow
+                    const duration = 5 + (scrollAmount / 50);
+                    el.style.setProperty('--scroll-amount', `-${scrollAmount}px`);
+                    el.style.setProperty('--scroll-duration', `${duration}s`);
+                }
+                setIsOverflowing(hasOverflow);
+            }
+        };
+
+        // Check on mount and on title change
+        checkOverflow();
+
+        // Check on resize
+        const resizeObserver = new ResizeObserver(checkOverflow);
+        if (titleRef.current) {
+            resizeObserver.observe(titleRef.current);
+        }
+
+        return () => resizeObserver.disconnect();
+    }, [title]);
+
+    return (
+        <header className="flex items-center gap-x-2 mb-2 sticky top-0 bg-primary py-4 z-10">
             {onBack && (
-                <button onClick={onBack} className="p-2 mr-2 rounded-full hover:bg-secondary">
+                <button onClick={onBack} className="p-2 rounded-full hover:bg-secondary flex-shrink-0">
                     <ChevronLeftIcon className="w-6 h-6" />
                 </button>
             )}
-            <h1 className="text-2xl font-bold truncate">{title}</h1>
-        </div>
-        {rightAction}
-    </header>
-);
+            <div className="flex-1 overflow-hidden">
+                <h1 
+                    ref={titleRef} 
+                    className={`text-2xl font-bold whitespace-nowrap ${isOverflowing ? 'autoscroll-on-overflow' : ''}`}
+                >
+                    {title}
+                </h1>
+            </div>
+            {rightAction && <div className="flex-shrink-0">{rightAction}</div>}
+        </header>
+    );
+};
+
 
 // --- Reader Settings Modal ---
 const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -253,8 +276,8 @@ const BooksList: React.FC<{ onSelect: (slug: string, name: string) => void }> = 
                         <div className="w-16 h-16 bg-tertiary rounded-2xl flex items-center justify-center flex-shrink-0">
                            <BookOpenIcon className="w-8 h-8 text-secondary" />
                         </div>
-                        <div className="flex-grow">
-                            <p className="font-bold text-lg text-primary">{book.bookName}</p>
+                        <div className="flex-grow min-w-0">
+                            <p className="font-bold text-lg text-primary truncate">{book.bookName}</p>
                             <p className="text-sm text-secondary mt-1">{book.writerName}</p>
                             <p className="text-xs text-secondary mt-1">{book.hadiths_count} Hadiths</p>
                         </div>
@@ -300,7 +323,7 @@ const ChaptersList: React.FC<{ bookSlug: string; bookName: string; onSelect: (ch
                                 </div>
                                 <p className="font-semibold text-primary truncate">{chapter.chapterEnglish}</p>
                             </div>
-                            <p className="font-amiri text-lg text-right text-secondary pl-4">{chapter.chapterArabic}</p>
+                            <p className="font-amiri text-lg text-right text-secondary pl-4 max-w-[40%] truncate">{chapter.chapterArabic}</p>
                         </button>
                     ))}
                 </div>
@@ -339,13 +362,13 @@ const HadithCard: React.FC<{ hadith: HadithData; isFavorite: boolean; onToggleFa
             </div>
 
             <p 
-                className="text-right font-amiri text-primary mb-4"
+                className="text-right font-amiri text-primary mb-4 break-words"
                 style={{ fontSize: `${settings.fontSize + 4}px`, lineHeight: settings.lineSpacing }}
             >
                 {hadith.hadithArabic}
             </p>
             <p 
-                className={`text-primary ${settings.fontStyle === 'amiri' ? 'font-amiri' : ''}`}
+                className={`text-primary ${settings.fontStyle === 'amiri' ? 'font-amiri' : ''} break-words`}
                 style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineSpacing }}
             >
                 {hadith.hadithEnglish}

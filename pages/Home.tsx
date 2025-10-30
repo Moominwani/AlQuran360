@@ -88,37 +88,56 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onShowSettings, onShowAbout }) 
     }, [location]);
 
     const { timeToNextPrayer, prayerForMainDisplay } = useMemo(() => {
-        if (!prayerData) return { timeToNextPrayer: null, prayerForMainDisplay: null };
-        const now = new Date();
-        const todayStr = now.toISOString().slice(0, 10);
-        const prayerTimesToday = prayerOrder.map(name => ({
-            name,
-            time: new Date(`${todayStr} ${prayerData.timings[name]}`),
-        }));
+        if (!prayerData?.meta?.timezone) return { timeToNextPrayer: null, prayerForMainDisplay: null };
 
-        let nextPrayerIndex = prayerTimesToday.findIndex(p => p.time > now);
-        let isAfterIsha = false;
+        const prayerTimeZone = prayerData.meta.timezone;
+        const now = new Date();
+        
+        // Use toLocaleTimeString for robust, timezone-aware time fetching.
+        const timeInLocation = now.toLocaleTimeString('en-GB', {
+            timeZone: prayerTimeZone,
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hourCycle: 'h23'
+        });
+
+        const [nowHours, nowMinutes, nowSeconds] = timeInLocation.split(':').map(Number);
+        const nowInSeconds = nowHours * 3600 + nowMinutes * 60 + nowSeconds;
+
+        const prayerTimesInSeconds = prayerOrder.map(name => {
+            if (!prayerData.timings[name]) return { name, timeInSeconds: 0 };
+            const [h, m] = prayerData.timings[name].split(':').map(Number);
+            return { name, timeInSeconds: h * 3600 + m * 60 };
+        });
+
+        let nextPrayerIndex = prayerTimesInSeconds.findIndex(p => p.timeInSeconds > nowInSeconds);
+
+        let diff;
+        let nextPrayerName;
+
         if (nextPrayerIndex === -1) {
-            nextPrayerIndex = 0;
-            isAfterIsha = true;
+            // After Isha, next prayer is Fajr tomorrow
+            nextPrayerName = prayerTimesInSeconds[0].name;
+            const fajrTomorrowInSeconds = prayerTimesInSeconds[0].timeInSeconds + (24 * 3600);
+            diff = fajrTomorrowInSeconds - nowInSeconds;
+        } else {
+            nextPrayerName = prayerTimesInSeconds[nextPrayerIndex].name;
+            diff = prayerTimesInSeconds[nextPrayerIndex].timeInSeconds - nowInSeconds;
         }
         
-        const nextPrayer = prayerTimesToday[nextPrayerIndex];
-        let nextPrayerTime = nextPrayer.time;
+        const hours = Math.floor(diff / 3600);
+        const minutes = Math.floor((diff % 3600) / 60);
+        const seconds = Math.floor(diff % 60);
 
-        if (isAfterIsha) {
-            const tomorrow = new Date(now);
-            tomorrow.setDate(now.getDate() + 1);
-            nextPrayerTime = new Date(`${tomorrow.toISOString().slice(0, 10)} ${prayerData.timings.Fajr}`);
+        let timeString;
+        if (hours > 0) {
+            timeString = `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+        } else {
+            timeString = `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
         }
-
-        let diff = nextPrayerTime.getTime() - now.getTime();
-        const minutes = Math.floor((diff / 1000 / 60) % 60).toString().padStart(2, '0');
-        const seconds = Math.floor((diff / 1000) % 60).toString().padStart(2, '0');
-
+        
         return {
-            timeToNextPrayer: `${minutes}:${seconds}`,
-            prayerForMainDisplay: nextPrayer.name
+            timeToNextPrayer: timeString,
+            prayerForMainDisplay: nextPrayerName,
         };
     }, [prayerData, currentTime]);
 
