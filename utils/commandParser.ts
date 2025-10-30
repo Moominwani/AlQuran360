@@ -78,7 +78,7 @@ const findBestSurahMatch = (query: string): { name: string; number: number } | n
 
 
 export type AppAction = {
-  type: 'navigate_page' | 'navigate_surah' | 'navigate_settings' | 'greet' | 'unknown';
+  type: 'navigate_page' | 'navigate_surah' | 'greet' | 'unknown';
   payload: any;
   responseText?: string;
 }
@@ -86,9 +86,15 @@ export type AppAction = {
 export const parseCommand = (command: string): AppAction => {
     const lowerCommand = command.toLowerCase().trim();
 
-    // === Greetings ===
+    // === Greetings & Conversation ===
     if (/\b(hello|hi|hey|salam|as-salamu alaykum)\b/.test(lowerCommand)) {
         return { type: 'greet', payload: {}, responseText: "Wa Alaikum Assalam! How can I help you?" };
+    }
+    if (/\b(how are you|how's it going)\b/.test(lowerCommand)) {
+        return { type: 'greet', payload: {}, responseText: "I'm doing well, Alhamdulillah. Thank you for asking!" };
+    }
+    if (/\b(thank you|thanks|shukran|jazakallah)\b/.test(lowerCommand)) {
+        return { type: 'greet', payload: {}, responseText: "You're welcome! Wa iyyakum." };
     }
     
     // === About Developer ===
@@ -100,7 +106,27 @@ export const parseCommand = (command: string): AppAction => {
         };
     }
     
-    // === Quran Info Commands ===
+    // === Islamic Knowledge ===
+    if (/pillar/.test(lowerCommand) && /islam/.test(lowerCommand)) {
+        return { type: 'greet', payload: {}, responseText: "The Five Pillars of Islam are:\n1. Shahada (Faith)\n2. Salah (Prayer)\n3. Zakat (Charity)\n4. Sawm (Fasting)\n5. Hajj (Pilgrimage to Mecca)" };
+    }
+    if (/islamic month|hijri month/.test(lowerCommand)) {
+        return { type: 'greet', payload: {}, responseText: "The 12 months in the Islamic calendar are: Muharram, Safar, Rabi' al-awwal, Rabi' al-thani, Jumada al-awwal, Jumada al-thani, Rajab, Sha'ban, Ramadan, Shawwal, Dhu al-Qi'dah, Dhu al-Hijjah." };
+    }
+    
+    // === Quran Facts & Info ===
+    if (/longest surah/.test(lowerCommand)) {
+        return { type: 'greet', payload: {}, responseText: "The longest surah in the Quran is Al-Baqarah, with 286 verses." };
+    }
+    if (/shortest surah/.test(lowerCommand)) {
+        return { type: 'greet', payload: {}, responseText: "The shortest surahs in the Quran are Al-Kawthar, Al-Asr, and An-Nasr, each with 3 verses." };
+    }
+    const surahCountMatch = lowerCommand.match(/how many (meccan|medinan) surahs/);
+    if (surahCountMatch) {
+        const type = surahCountMatch[1];
+        const count = surahMetadata.filter(s => s.revelationType.toLowerCase() === type).length;
+        return { type: 'greet', payload: {}, responseText: `There are ${count} ${type} surahs in the Quran.` };
+    }
     const infoRegex = /(how many|number of|what is|what's the|is|was) (.*) (verses|ayahs|ayat|revelation|revealed in|english name|translation)/;
     const infoMatch = lowerCommand.match(infoRegex);
     if (infoMatch) {
@@ -121,10 +147,23 @@ export const parseCommand = (command: string): AppAction => {
     }
 
     // === General Page Navigation (High Priority) ===
+    if (/\b(settings)\b/.test(lowerCommand)) {
+        if (/\b(appearance|theme|dark mode|light mode)\b/.test(lowerCommand)) {
+             return { type: 'navigate_page', payload: { page: Page.Settings, view: 'appearance' }, responseText: 'Opening appearance settings.' };
+        }
+        if (/\b(time|format|clock)\b/.test(lowerCommand)) {
+            return { type: 'navigate_page', payload: { page: Page.Settings, view: 'time' }, responseText: 'Opening time format settings.' };
+        }
+        return { type: 'navigate_page', payload: { page: Page.Settings }, responseText: 'Opening settings.' };
+    }
     if (/\b(hadith|hadees)\b/.test(lowerCommand)) return { type: 'navigate_page', payload: { page: Page.Hadith }, responseText: 'Opening the Hadith library.' };
-    if (/\b(settings|theme|appearance)\b/.test(lowerCommand)) return { type: 'navigate_settings', payload: {}, responseText: 'Opening settings.' };
     if (/\b(qibla|qiblah|direction|kaaba)\b/.test(lowerCommand)) return { type: 'navigate_page', payload: { page: Page.Qibla }, responseText: 'Opening the Qibla finder.' };
-    if (/\b(tasbeeh|tasbih|counter|dhikr|zikr)\b/.test(lowerCommand)) return { type: 'navigate_page', payload: { page: Page.Tasbeeh }, responseText: 'Opening the Tasbeeh counter.' };
+    if (/\b(tasbeeh|tasbih|counter|dhikr|zikr)\b/.test(lowerCommand)) {
+        if (/\b(reset)\b/.test(lowerCommand)) {
+            return { type: 'navigate_page', payload: { page: Page.Tasbeeh }, responseText: 'Opening the Tasbeeh counter. You can reset it there.' };
+        }
+        return { type: 'navigate_page', payload: { page: Page.Tasbeeh }, responseText: 'Opening the Tasbeeh counter.' };
+    }
     
     // === Prayer Times (with date logic) ===
     const prayerRegex = /\b(prayer|salah|salat|namaz|times?)\b/;

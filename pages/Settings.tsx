@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Appearance from './Appearance';
 import TimeFormat from './TimeFormat';
 import About from './About';
 import { ChevronRightIcon } from '../components/icons/MiscIcons';
 
 type SettingsView = 'main' | 'time' | 'appearance' | 'about';
+
+interface SettingsProps {
+    pageProps: { view?: SettingsView };
+    onNavigate: (props: { view: SettingsView }) => void;
+}
 
 const SettingsLink: React.FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
     <button
@@ -16,10 +21,10 @@ const SettingsLink: React.FC<{ label: string; onClick: () => void }> = ({ label,
     </button>
 );
 
-const Settings: React.FC = () => {
-    const [view, setView] = useState<SettingsView>('main');
+const Settings: React.FC<SettingsProps> = ({ pageProps, onNavigate }) => {
+    const { view = 'main' } = pageProps || {};
 
-    const handleBack = () => setView('main');
+    const handleBack = () => window.history.back();
 
     if (view === 'time') {
         return <TimeFormat onBack={handleBack} />;
@@ -38,9 +43,9 @@ const Settings: React.FC = () => {
             </header>
             
             <main className="flex-grow p-4 space-y-3 pb-20">
-                <SettingsLink label="Time Format" onClick={() => setView('time')} />
-                <SettingsLink label="App Appearance" onClick={() => setView('appearance')} />
-                <SettingsLink label="About AlQuran360" onClick={() => setView('about')} />
+                <SettingsLink label="Time Format" onClick={() => onNavigate({ view: 'time' })} />
+                <SettingsLink label="App Appearance" onClick={() => onNavigate({ view: 'appearance' })} />
+                <SettingsLink label="About AlQuran360" onClick={() => onNavigate({ view: 'about' })} />
             </main>
             
             <footer className="fixed bottom-20 left-0 right-0 text-center py-4 bg-primary text-secondary text-sm">

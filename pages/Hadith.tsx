@@ -525,64 +525,34 @@ const FavoritesList: React.FC<{ bookSlug: string; bookName: string; onBack: () =
     );
 };
 
-const HadithContent: React.FC = () => {
-    type HadithView = 'books' | 'chapters' | 'hadiths' | 'favorites';
-    interface HadithHistoryState {
-        view: HadithView;
+interface HadithProps {
+    pageProps: { 
+        view?: 'books' | 'chapters' | 'hadiths' | 'favorites';
         book?: { slug: string; name: string };
         chapter?: { number: string; name: string };
-    }
-
-    const [view, setView] = useState<HadithView>('books');
-    const [selectedBook, setSelectedBook] = useState<{ slug: string; name: string } | null>(null);
-    const [selectedChapter, setSelectedChapter] = useState<{ number: string; name: string } | null>(null);
-
-    const updateStateFromHistory = (state: HadithHistoryState | null) => {
-        if (!state || !state.view) {
-            setView('books');
-            setSelectedBook(null);
-            setSelectedChapter(null);
-            return;
-        }
-        setView(state.view);
-        setSelectedBook(state.book || null);
-        setSelectedChapter(state.chapter || null);
     };
+    onNavigate: (props: any) => void;
+}
 
-    useEffect(() => {
-        const initialState: HadithHistoryState = { view: 'books' };
-        window.history.replaceState(initialState, '');
-
-        const handlePopState = (event: PopStateEvent) => {
-            updateStateFromHistory(event.state as HadithHistoryState);
-        };
-
-        window.addEventListener('popstate', handlePopState);
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
-    }, []);
+const HadithContent: React.FC<HadithProps> = ({ pageProps, onNavigate }) => {
+    const { 
+        view = 'books',
+        book: selectedBook,
+        chapter: selectedChapter
+    } = pageProps || {};
 
     const handleBookSelect = (slug: string, name: string) => {
-        const book = { slug, name };
-        const newState: HadithHistoryState = { view: 'chapters', book };
-        window.history.pushState(newState, '');
-        updateStateFromHistory(newState);
+        onNavigate({ view: 'chapters', book: { slug, name } });
     };
 
     const handleChapterSelect = (number: string, name: string) => {
         if (!selectedBook) return;
-        const chapter = { number, name };
-        const newState: HadithHistoryState = { view: 'hadiths', book: selectedBook, chapter };
-        window.history.pushState(newState, '');
-        updateStateFromHistory(newState);
+        onNavigate({ view: 'hadiths', book: selectedBook, chapter: { number, name } });
     };
     
     const handleShowFavorites = () => {
         if (!selectedBook) return;
-        const newState: HadithHistoryState = { view: 'favorites', book: selectedBook };
-        window.history.pushState(newState, '');
-        updateStateFromHistory(newState);
+        onNavigate({ view: 'favorites', book: selectedBook });
     };
 
     const handleBack = () => {
@@ -614,10 +584,10 @@ const HadithContent: React.FC = () => {
 };
 
 
-const Hadith: React.FC = () => {
+const Hadith: React.FC<HadithProps> = ({ pageProps, onNavigate }) => {
     return (
         <HadithSettingsProvider>
-            <HadithContent />
+            <HadithContent pageProps={pageProps} onNavigate={onNavigate} />
         </HadithSettingsProvider>
     );
 };

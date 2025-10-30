@@ -76,14 +76,20 @@ const App: React.FC = () => {
     window.history.back();
   };
 
-  const changePage = (page: Page) => {
-    const newState: HistoryState = { page, viewingSurah: null, pageProps: {} };
+  const changePage = (page: Page, props: any = {}) => {
+    const newState: HistoryState = { page, viewingSurah: null, pageProps: props };
     window.history.pushState(newState, '');
     
     setViewingSurah(null);
     setActivePage(page);
-    setPageProps({}); // Reset props on simple page change
+    setPageProps(props);
     setIsVoiceAssistantOpen(false);
+  };
+
+  const handleSubpageNavigation = (props: any) => {
+    const newState: HistoryState = { page: activePage, viewingSurah, pageProps: props };
+    window.history.pushState(newState, '');
+    setPageProps(props);
   };
   
   const handleAction = (action: { type: string, payload: any }) => {
@@ -108,11 +114,6 @@ const App: React.FC = () => {
         setActivePage(Page.Quran);
         setViewingSurah(surahState);
         break;
-      case 'navigate_settings':
-        newState = { page: Page.Settings, viewingSurah: null, pageProps: {} };
-        window.history.pushState(newState, '');
-        setActivePage(Page.Settings);
-        break;
       default:
         break;
     }
@@ -133,9 +134,9 @@ const App: React.FC = () => {
       case Page.Quran:
         return <Quran onSurahSelect={handleSurahSelect} />;
       case Page.Hadith:
-        return <Hadith />;
+        return <Hadith onNavigate={handleSubpageNavigation} pageProps={pageProps} />;
       case Page.Settings:
-        return <Settings />;
+        return <Settings onNavigate={handleSubpageNavigation} pageProps={pageProps} />;
       case Page.Qibla:
         return <Qibla />;
       case Page.Tasbeeh:
