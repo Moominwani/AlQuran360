@@ -10,8 +10,6 @@ const prayerOrder = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
 interface HomeProps {
     onNavigate: (page: Page) => void;
-    onShowSettings: () => void;
-    onShowAbout: () => void;
 }
 
 const QuickActionButton: React.FC<{ Icon: React.ElementType; label: string; onClick?: () => void }> = ({ Icon, label, onClick }) => (
@@ -24,14 +22,13 @@ const QuickActionButton: React.FC<{ Icon: React.ElementType; label: string; onCl
 );
 
 
-const Home: React.FC<HomeProps> = ({ onNavigate, onShowSettings, onShowAbout }) => {
+const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     const [location, setLocation] = useState<{ city: string, latitude: number, longitude: number } | null>(null);
     const [prayerData, setPrayerData] = useState<PrayerData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { timeFormat } = useTimeFormat();
 
     const formatPrayerTime = (time24: string): string => {
@@ -147,7 +144,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onShowSettings, onShowAbout }) 
         <div className="pb-8 relative">
             <TopBar 
               title="AlQuran360"
-              onMenuClick={() => setIsMenuOpen(prev => !prev)}
             />
             
             <div className="px-4 pt-2 pb-3">
@@ -159,16 +155,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onShowSettings, onShowAbout }) 
                     <span className="font-medium text-sm">{location?.city || 'Set Location'}</span>
                  </button>
             </div>
-            
-            {isMenuOpen && (
-                 <>
-                    <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)}></div>
-                    <div className="absolute top-16 right-4 w-48 bg-secondary rounded-lg shadow-lg z-20 animate-fade-in border border-primary">
-                        <button onClick={() => { onShowSettings(); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-primary hover:bg-tertiary rounded-t-lg">Settings</button>
-                        <button onClick={() => { onShowAbout(); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-primary hover:bg-tertiary rounded-b-lg">About</button>
-                    </div>
-                 </>
-            )}
             
             {isLocationModalOpen && <LocationModal onClose={() => setIsLocationModalOpen(false)} onLocationSet={handleLocationUpdate} />}
 

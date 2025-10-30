@@ -1,150 +1,238 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AIIcon, QuranIcon, PrayerIcon, HadithIcon } from './icons/NavIcons';
-import { SlidersIcon, ChevronLeftIcon } from './icons/MiscIcons';
+import { Page } from '../types';
 import { parseCommand } from '../utils/commandParser';
+import { AIIcon, SendIcon, PlusIcon, MicrophoneIcon } from './icons/NavIcons';
+import { ChevronLeftIcon, RefreshIcon } from './icons/MiscIcons';
+
 
 interface AIAssistantProps {
   onAction: (action: { type: string; payload: any }) => void;
   onBack: () => void;
+  onVoiceCommand: () => void;
 }
 
 interface Message {
-    id: number;
-    sender: 'user' | 'bot';
-    text: string;
+  id: number;
+  sender: 'user' | 'bot';
+  text: string;
 }
 
-const WelcomeSuggestion: React.FC<{ Icon: React.ElementType; text: string; onClick: () => void }> = ({ Icon, text, onClick }) => (
-    <button onClick={onClick} className="bg-secondary p-4 rounded-2xl flex flex-col items-start justify-between h-28 text-left transition-transform transform hover:scale-105">
-        <Icon className="w-6 h-6 text-primary/70" />
-        <span className="font-medium text-primary">{text}</span>
+const SuggestionChip: React.FC<{ text: string; onClick: () => void; }> = ({ text, onClick }) => (
+    <button
+        onClick={onClick}
+        className="px-4 py-2 border border-primary/50 rounded-full text-sm text-primary bg-secondary hover:bg-tertiary transition-colors"
+    >
+        {text}
     </button>
 );
 
 const TypingIndicator = () => (
-    <div className="flex items-end gap-3 justify-start animate-fade-in">
-        <div className="w-8 h-8 rounded-full bg-secondary flex-shrink-0 flex items-center justify-center"><AIIcon className="w-5 h-5 text-primary" /></div>
-        <div className="px-4 py-3 rounded-2xl bg-secondary text-primary rounded-bl-lg">
-            <div className="flex items-center justify-center space-x-1.5">
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-            </div>
-        </div>
+  <div className="flex items-end gap-3 justify-start animate-fade-in">
+    <div className="w-8 h-8 rounded-full bg-secondary flex-shrink-0 flex items-center justify-center">
+      <AIIcon className="w-5 h-5 text-primary" />
     </div>
+    <div className="px-4 py-3 rounded-2xl bg-secondary text-primary rounded-bl-lg">
+      <div className="flex items-center justify-center space-x-1.5">
+        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+      </div>
+    </div>
+  </div>
 );
 
-const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack }) => {
-    const [inputValue, setInputValue] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([
-        { id: 0, sender: 'bot', text: "As-salamu alaykum! I am your personal assistant for AlQuran360. How can I help you today?" }
-    ]);
-    const inputRef = useRef<HTMLInputElement>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+const CHAT_HISTORY_KEY = 'ai_chat_history_v2';
+const initialBotMessage: Message = { id: 0, sender: 'bot', text: "As-salamu alaykum! I am your personal assistant for AlQuran360. How can I help you today?" };
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isTyping]);
-
-    const handleCommand = (command: string) => {
-        if (!command.trim()) return;
-
-        const userMessage: Message = { id: Date.now(), sender: 'user', text: command };
-        setMessages(prev => [...prev, userMessage]);
-        setIsTyping(true);
-
-        const action = parseCommand(command);
-        
-        setTimeout(() => {
-            setIsTyping(false);
-            const responseText = action.responseText || 'Got it!';
-            const botResponse: Message = { id: Date.now() + 1, sender: 'bot', text: responseText };
-            setMessages(prev => [...prev, botResponse]);
-
-            if (action.type !== 'unknown' && action.type !== 'greet') {
-                 setTimeout(() => {
-                    onAction(action);
-                }, 800);
+const getInitialMessages = (): Message[] => {
+    try {
+        const savedHistory = localStorage.getItem(CHAT_HISTORY_KEY);
+        if (savedHistory) {
+            const { messages: savedMessages, timestamp } = JSON.parse(savedHistory);
+            const isExpired = (Date.now() - timestamp) > 24 * 60 * 60 * 1000; 
+            if (!isExpired && Array.isArray(savedMessages) && savedMessages.length > 0) {
+                return savedMessages;
             }
-        }, 1000); // Simulate bot "thinking"
-        
-        setInputValue('');
+        }
+    } catch (e) {
+        console.error("Failed to load chat history", e);
+    }
+    return [initialBotMessage];
+};
+
+
+const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceCommand }) => {
+  const [inputValue, setInputValue] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [messages, setMessages] = useState<Message[]>(getInitialMessages);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const visualViewport = window.visualViewport;
+    if (!container || !visualViewport) return;
+
+    const handleViewportResize = () => {
+      container.style.height = `${visualViewport.height}px`;
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        handleCommand(inputValue);
+    visualViewport.addEventListener('resize', handleViewportResize);
+    handleViewportResize(); // Set initial height
+
+    return () => {
+      visualViewport.removeEventListener('resize', handleViewportResize);
+      if (container) container.style.height = '100vh';
     };
-    
-    const showWelcomeScreen = messages.length === 1;
+  }, []);
 
-    return (
-        <div className="flex flex-col h-full bg-primary text-primary relative">
-            <header className="flex items-center justify-between p-4 flex-shrink-0 z-10">
-                <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm">
-                    <ChevronLeftIcon className="w-6 h-6 text-primary" />
-                </button>
-                <div className="px-4 py-2 rounded-full bg-tertiary/80 backdrop-blur-sm text-primary font-semibold">AlQuran360 AI</div>
-                <div className="w-10 h-10"></div> {/* Placeholder for alignment */}
-            </header>
-            
-            <main className="flex-1 overflow-y-auto p-4 space-y-6">
-                {showWelcomeScreen ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center -mt-16 animate-fade-in">
-                        <h1 className="text-4xl font-bold mb-8 text-primary/80">What can I help with?</h1>
-                        <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
-                            <WelcomeSuggestion Icon={QuranIcon} text="Read Surah Al-Mulk" onClick={() => handleCommand('Read Surah Al-Mulk')} />
-                            <WelcomeSuggestion Icon={PrayerIcon} text="Show prayer times" onClick={() => handleCommand('Show prayer times')} />
-                            <WelcomeSuggestion Icon={HadithIcon} text="Open Hadith books" onClick={() => handleCommand('Open Hadith books')} />
-                            <WelcomeSuggestion Icon={SlidersIcon} text="Change theme" onClick={() => handleCommand('Change theme')} />
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        {messages.slice(1).map((msg) => ( // Hide the initial greeting from chat log
-                            <div key={msg.id} className={`flex items-end gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                               {msg.sender === 'bot' && <div className="w-8 h-8 rounded-full bg-secondary flex-shrink-0 flex items-center justify-center"><AIIcon className="w-5 h-5 text-primary" /></div>}
-                               <div 
-                                 className={`max-w-xs md:max-w-md px-4 py-3 rounded-2xl animate-fade-in-up allow-selection ${
-                                    msg.sender === 'user' 
-                                        ? 'bg-green-500 text-white rounded-br-lg' 
-                                        : 'bg-secondary text-primary rounded-bl-lg'
-                                 }`}
-                               >
-                                   <p className="whitespace-pre-wrap">{msg.text}</p>
-                               </div>
-                            </div>
-                        ))}
-                        {isTyping && <TypingIndicator />}
-                    </>
-                )}
-                <div ref={messagesEndRef} />
-            </main>
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+  
+  useEffect(() => {
+    if (messages.length > 1) {
+        const history = {
+            messages,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history));
+    }
+  }, [messages]);
 
-            <footer className="p-2 pb-4 bg-primary/80 backdrop-blur-sm">
-                <form onSubmit={handleSubmit} className="flex items-center space-x-2">
-                    <div className="relative flex-grow">
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            placeholder="Ask AlQuran360..."
-                            className="w-full bg-secondary border-none rounded-full py-3 pl-5 pr-14 text-primary placeholder-color focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                         <button
-                            type="submit"
-                            disabled={!inputValue.trim() || isTyping}
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-green-500 text-white transition-all transform active:scale-90 disabled:opacity-50 disabled:bg-tertiary"
-                            aria-label="Send command"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" /></svg>
-                        </button>
-                    </div>
-                </form>
-            </footer>
+  const handleCommand = (command: string) => {
+    if (!command.trim()) return;
+
+    const userMessage: Message = { id: Date.now(), sender: 'user', text: command };
+    setMessages(prev => [...prev, userMessage]);
+    setIsTyping(true);
+
+    const action = parseCommand(command);
+
+    setTimeout(() => {
+      setIsTyping(false);
+      const responseText = action.responseText || 'Got it!';
+      const botResponse: Message = { id: Date.now() + 1, sender: 'bot', text: responseText };
+      setMessages(prev => [...prev, botResponse]);
+
+      if (action.type !== 'unknown' && action.type !== 'greet') {
+        setTimeout(() => onAction(action), 800);
+      }
+    }, 1000 + Math.random() * 1000);
+
+    setInputValue('');
+  };
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    handleCommand(inputValue);
+  };
+  
+  const handleResetChat = () => {
+    setMessages([initialBotMessage]);
+    localStorage.removeItem(CHAT_HISTORY_KEY);
+  };
+
+  const showWelcomeScreen = messages.length <= 1;
+
+  return (
+    <div ref={containerRef} className="fixed inset-0 z-50 bg-primary text-primary flex flex-col overflow-hidden transition-height duration-200 ease-out">
+      <header className="flex items-center justify-between p-4 flex-shrink-0 z-10 border-b border-primary">
+        <button
+          onClick={onBack}
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-secondary"
+        >
+          <ChevronLeftIcon className="w-6 h-6 text-primary" />
+        </button>
+        <div className="text-primary font-semibold">
+          AlQuran360 AI
         </div>
-    );
+        <button onClick={handleResetChat} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary" aria-label="New Chat">
+          <RefreshIcon className="w-6 h-6 text-primary" />
+        </button>
+      </header>
+
+      <main className="flex-1 overflow-y-auto p-4 flex flex-col">
+        {showWelcomeScreen ? (
+          <div className="flex-1 flex flex-col justify-center items-center text-center animate-fade-in h-full px-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center shadow-lg mb-6">
+                <AIIcon className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-primary">As-salamu alaykum!</h1>
+            <p className="text-secondary mt-2">How can I help you today?</p>
+          </div>
+        ) : (
+          <div className="mt-auto space-y-6">
+            {messages.slice(1).map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex items-end gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {msg.sender === 'bot' && (
+                  <div className="w-8 h-8 rounded-full bg-secondary flex-shrink-0 flex items-center justify-center">
+                    <AIIcon className="w-5 h-5 text-primary" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-xs md:max-w-md px-4 py-3 rounded-2xl animate-fade-in-up allow-selection ${
+                    msg.sender === 'user'
+                      ? 'bg-green-500 text-white rounded-br-lg'
+                      : 'bg-secondary text-primary rounded-bl-lg'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                </div>
+              </div>
+            ))}
+            {isTyping && <TypingIndicator />}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </main>
+
+       <footer className="flex-shrink-0 p-2 bg-primary border-t border-primary">
+            {showWelcomeScreen && (
+                <div className="max-w-2xl mx-auto mb-3 flex flex-wrap justify-center gap-2 p-2">
+                    <SuggestionChip text="Read Surah Al-Mulk" onClick={() => handleCommand('Read Surah Al-Mulk')} />
+                    <SuggestionChip text="Prayer times" onClick={() => handleCommand('Show prayer times for tomorrow')} />
+                    <SuggestionChip text="Open Hadith books" onClick={() => handleCommand('Open Hadith books')} />
+                    <SuggestionChip text="Who developed this app?" onClick={() => handleCommand('who developed this app?')} />
+                </div>
+            )}
+            <form onSubmit={handleSubmit} className="flex items-center space-x-2 max-w-2xl mx-auto bg-secondary rounded-full px-2 py-1 shadow-md">
+                <button type="button" className="w-10 h-10 flex items-center justify-center text-primary rounded-full hover:bg-tertiary flex-shrink-0">
+                    <PlusIcon className="w-6 h-6" />
+                </button>
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Ask AlQuran360 AI..."
+                    className="w-full bg-transparent border-none py-2 text-primary placeholder-color focus:outline-none"
+                />
+                <div className="flex-shrink-0">
+                    {inputValue.trim() ? (
+                    <button
+                        type="submit"
+                        disabled={isTyping}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-green-500 text-white transition-transform active:scale-90 disabled:opacity-50"
+                        aria-label="Send message"
+                    >
+                        <SendIcon className="w-5 h-5" />
+                    </button>
+                    ) : (
+                    <button type="button" onClick={onVoiceCommand} className="w-10 h-10 flex items-center justify-center text-primary rounded-full hover:bg-tertiary">
+                        <MicrophoneIcon className="w-6 h-6" />
+                    </button>
+                    )}
+                </div>
+            </form>
+      </footer>
+    </div>
+  );
 };
 export default AIAssistant;

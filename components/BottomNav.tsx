@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, PrayerIcon, QuranIcon, HadithIcon } from './icons/NavIcons';
+import { HomeIcon, PrayerIcon, QuranIcon, HadithIcon, SettingsIcon } from './icons/NavIcons';
 
 interface BottomNavProps {
   activePage: Page;
@@ -18,7 +18,7 @@ const NavItem: React.FC<{
   return (
     <button
       onClick={() => setActivePage(page)}
-      className="flex flex-col items-center justify-center w-1/4 pt-2 pb-1 transition-colors duration-200"
+      className="flex flex-col items-center justify-center w-1/5 pt-2 pb-1 transition-colors duration-200"
     >
        <div className={`relative flex items-center justify-center h-8 w-16 mb-1`}>
          {isActive && <div className="absolute inset-x-0 top-0 h-8 bg-green-500/80 rounded-full" style={{filter: 'blur(18px)'}}></div>}
@@ -40,6 +40,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage }) => {
           <NavItem page={Page.Prayer} activePage={activePage} setActivePage={setActivePage} Icon={PrayerIcon} label="Prayer"/>
           <NavItem page={Page.Quran} activePage={activePage} setActivePage={setActivePage} Icon={QuranIcon} label="Quran" />
           <NavItem page={Page.Hadith} activePage={activePage} setActivePage={setActivePage} Icon={HadithIcon} label="Hadith" />
+          <NavItem page={Page.Settings} activePage={activePage} setActivePage={setActivePage} Icon={SettingsIcon} label="Settings" />
         </div>
       </div>
     </div>

@@ -5,7 +5,6 @@ import Home from './pages/Home';
 import Quran from './pages/Quran';
 import SurahDetail from './pages/SurahDetail';
 import LocationManager from './components/LocationManager';
-import About from './pages/About';
 import Settings from './pages/Settings';
 import Prayer from './pages/Prayer';
 import Hadith from './pages/Hadith';
@@ -18,7 +17,6 @@ const App: React.FC = () => {
   const [pageProps, setPageProps] = useState<any>({});
   const [viewingSurah, setViewingSurah] = useState<{ number: number; startPlayback: boolean; ayahNumber?: number; } | null>(null);
   const [locationReady, setLocationReady] = useState<boolean>(false);
-  const [fullPageView, setFullPageView] = useState<'about' | 'settings' | null>(null);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
 
   useEffect(() => {
@@ -29,7 +27,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleSurahSelect = (surahNumber: number, startPlayback: boolean = false) => {
-    setFullPageView(null);
     setActivePage(Page.Quran); // Set context to Quran page for better back navigation
     setViewingSurah({ number: surahNumber, startPlayback });
     setIsVoiceAssistantOpen(false);
@@ -41,14 +38,8 @@ const App: React.FC = () => {
 
   const changePage = (page: Page) => {
     setViewingSurah(null);
-    setFullPageView(null);
     setActivePage(page);
     setPageProps({}); // Reset props on simple page change
-    setIsVoiceAssistantOpen(false);
-  };
-
-  const handleShowSettings = () => {
-    setFullPageView('settings');
     setIsVoiceAssistantOpen(false);
   };
   
@@ -58,10 +49,8 @@ const App: React.FC = () => {
         setPageProps(action.payload); // Store props for the page
         setActivePage(action.payload.page);
         setViewingSurah(null);
-        setFullPageView(null);
         break;
       case 'navigate_surah':
-        setFullPageView(null);
         setActivePage(Page.Quran); // For back navigation context
         setViewingSurah({ 
             number: action.payload.surahNumber, 
@@ -70,7 +59,7 @@ const App: React.FC = () => {
         });
         break;
       case 'navigate_settings':
-        handleShowSettings();
+        setActivePage(Page.Settings);
         break;
       default:
         break;
@@ -86,32 +75,27 @@ const App: React.FC = () => {
 
     switch (activePage) {
       case Page.Home:
-        return <Home onNavigate={changePage} onShowSettings={handleShowSettings} onShowAbout={() => setFullPageView('about')} />;
+        return <Home onNavigate={changePage} />;
       case Page.Prayer:
         return <Prayer {...pageProps} />;
       case Page.Quran:
         return <Quran onSurahSelect={handleSurahSelect} />;
       case Page.Hadith:
         return <Hadith />;
+      case Page.Settings:
+        return <Settings />;
       case Page.AIAssistant:
-        return <AIAssistant onAction={handleAction} onBack={() => changePage(Page.Home)} />;
+        return <AIAssistant onAction={handleAction} onBack={() => changePage(Page.Home)} onVoiceCommand={() => setIsVoiceAssistantOpen(true)} />;
       default:
-        return <Home onNavigate={changePage} onShowSettings={handleShowSettings} onShowAbout={() => setFullPageView('about')} />;
+        return <Home onNavigate={changePage} />;
     }
   };
-
-  if (fullPageView === 'about') {
-    return <About onBack={() => setFullPageView(null)} />;
-  }
-  if (fullPageView === 'settings') {
-    return <Settings onBack={() => setFullPageView(null)} />;
-  }
 
   if (!locationReady) {
     return <LocationManager onLocationSet={() => setLocationReady(true)} />;
   }
   
-  const showNav = !viewingSurah && !fullPageView && activePage !== Page.AIAssistant;
+  const showNav = !viewingSurah && activePage !== Page.AIAssistant;
   const showAiButton = activePage !== Page.AIAssistant && !isVoiceAssistantOpen;
 
   return (

@@ -76,6 +76,15 @@ export const parseCommand = (command: string): AppAction => {
     if (/\b(hello|hi|hey|salam|as-salamu alaykum)\b/.test(lowerCommand)) {
         return { type: 'greet', payload: {}, responseText: "Wa Alaikum Assalam! How can I help you?" };
     }
+    
+    // === About Developer ===
+    if (/\b(who|developer|developed|creator|made)\b/.test(lowerCommand) && /\b(app|alquran360|this)\b/.test(lowerCommand)) {
+        return { 
+            type: 'greet', 
+            payload: {}, 
+            responseText: "AlQuran360 was developed with ❤️ by Moomin Wani. He is a passionate developer from Kashmir, dedicated to creating beautiful and useful applications for the Muslim community to help them in their daily religious practices." 
+        };
+    }
 
     // === General Page Navigation (High Priority) ===
     if (/\b(hadith|hadees)\b/.test(lowerCommand)) return { type: 'navigate_page', payload: { page: Page.Hadith }, responseText: 'Opening the Hadith library.' };

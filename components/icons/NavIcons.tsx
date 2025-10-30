@@ -22,6 +22,9 @@ export const AIIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </svg>
 );
 
+export const SettingsIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.58-.21l-2.49 1a6.32 6.32 0 0 0-1.62-.98l-.38-2.65A.49.49 0 0 0 14.15 2h-3.82a.49.49 0 0 0-.49.44l-.38 2.65a6.32 6.32 0 0 0-1.62.98l-2.49-1a.49.49 0 0 0-.58.21l-1.92 3.32a.49.49 0 0 0 .12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32a.49.49 0 0 0 .58.21l2.49-1a6.32 6.32 0 0 0 1.62.98l.38 2.65a.49.49 0 0 0 .49.44h3.82a.49.49 0 0 0 .49-.44l.38-2.65a6.32 6.32 0 0 0 1.62-.98l2.49 1a.49.49 0 0 0 .58-.21l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+);
 
 export const SendIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
@@ -38,5 +41,12 @@ export const PlusIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export const AudioWaveIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
         <path d="M4.5 12a.75.75 0 00.75.75h.75a.75.75 0 000-1.5H5.25a.75.75 0 00-.75.75zM8.25 12a.75.75 0 00.75.75H9.75v-.012a.75.75 0 00-1.5 0v.012H9a.75.75 0 00-.75-.75zM12 11.25a.75.75 0 00-1.5 0v1.5a.75.75 0 001.5 0v-1.5zM15.75 12a.75.75 0 00.75.75h.75a.75.75 0 000-1.5h-.75a.75.75 0 00-.75.75zM18.75 12a.75.75 0 00.75.75h.75a.75.75 0 000-1.5h-.75a.75.75 0 00-.75.75z" />
+    </svg>
+);
+
+export const MicrophoneIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+        <path d="M12 1.75a3.25 3.25 0 00-3.25 3.25v6a3.25 3.25 0 006.5 0v-6A3.25 3.25 0 0012 1.75z" />
+        <path d="M18.5 11a.75.75 0 00-1.5 0v.25a5.25 5.25 0 01-10.5 0v-.25a.75.75 0 00-1.5 0v.25a6.75 6.75 0 006 6.7v1.8h-2.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5H13v-1.8a6.75 6.75 0 006-6.7v-.25z" />
     </svg>
 );
