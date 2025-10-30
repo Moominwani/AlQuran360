@@ -18,8 +18,13 @@ const AIScholar: React.FC<AIScholarProps> = ({ onBack }) => {
       </header>
       <main className="flex-grow p-2 sm:p-4 bg-tertiary relative">
         {isLoading && (
-          <div className="absolute inset-2 sm:inset-4 flex items-center justify-center bg-tertiary z-10 rounded-xl">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="absolute inset-2 sm:inset-4 flex flex-col items-center justify-center bg-tertiary z-10 rounded-xl">
+            <div className="flex items-center justify-center space-x-2">
+                <div className="w-4 h-4 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="w-4 h-4 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="w-4 h-4 bg-primary rounded-full animate-bounce" />
+            </div>
+            <p className="mt-4 text-secondary text-sm">Loading Scholar...</p>
           </div>
         )}
         <div 
@@ -31,7 +36,7 @@ const AIScholar: React.FC<AIScholarProps> = ({ onBack }) => {
             onLoad={() => setIsLoading(false)}
             style={{ 
               width: '100%', 
-              height: '3000px',
+              height: '3300px',
               border: 'none', 
               position: 'absolute', 
               top: 0, 
