@@ -10,7 +10,6 @@ interface AIAssistantProps {
   onAction: (action: { type: string; payload: any }) => void;
   onBack: () => void;
   onVoiceCommand: () => void;
-  onNavigate: (page: Page) => void;
 }
 
 interface Message {
@@ -80,7 +79,7 @@ const getInitialSessions = (): { sessions: ChatSession[], activeId: number | nul
 };
 
 
-const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceCommand, onNavigate }) => {
+const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceCommand }) => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [chatState, setChatState] = useState(getInitialSessions);
@@ -232,19 +231,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
       <main className="flex-1 overflow-y-auto p-4 flex flex-col justify-end">
         {showWelcomeScreen ? (
           <div className="flex-1 flex flex-col justify-center items-center text-center animate-fade-in h-full px-4">
-            <button
-                onClick={() => onNavigate(Page.AIScholar)}
-                className="w-full max-w-sm text-left p-4 rounded-2xl bg-secondary mb-8 border border-primary/20 flex items-center space-x-4 transition-transform transform hover:scale-[1.02]"
-            >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16 4v12l-4-2-4 2V4M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                </div>
-                <div>
-                    <h2 className="font-bold text-primary">Islamic AI Scholar <span className="text-xs accent-text font-semibold bg-green-500/20 px-2 py-0.5 rounded-full">NEW</span></h2>
-                    <p className="text-sm text-secondary">Ask complex questions and get detailed answers.</p>
-                </div>
-            </button>
-
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center shadow-lg mb-6">
                 <AIIcon className="w-10 h-10 text-white" />
             </div>

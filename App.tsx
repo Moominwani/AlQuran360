@@ -14,6 +14,7 @@ import FloatingAIButton from './components/FloatingAIButton';
 import Qibla from './pages/Qibla';
 import Tasbeeh from './pages/Tasbeeh';
 import AIScholar from './pages/AIScholar';
+import { CrownIcon } from './components/icons/MiscIcons';
 
 // Define a type for our history state
 interface HistoryState {
@@ -143,7 +144,7 @@ const App: React.FC = () => {
       case Page.Tasbeeh:
         return <Tasbeeh />;
       case Page.AIAssistant:
-        return <AIAssistant onAction={handleAction} onBack={() => window.history.back()} onVoiceCommand={() => setIsVoiceAssistantOpen(true)} onNavigate={changePage} />;
+        return <AIAssistant onAction={handleAction} onBack={() => window.history.back()} onVoiceCommand={() => setIsVoiceAssistantOpen(true)} />;
       case Page.AIScholar:
         return <AIScholar onBack={() => window.history.back()} />;
       default:
@@ -158,6 +159,7 @@ const App: React.FC = () => {
   const pagesWithoutNav = [Page.AIAssistant, Page.AIScholar];
   const showNav = !viewingSurah && !pagesWithoutNav.includes(activePage);
   const showAiButton = !pagesWithoutNav.includes(activePage) && !isVoiceAssistantOpen;
+  const showAiScholarButton = activePage === Page.Home && !isVoiceAssistantOpen;
   const isTucked = !!viewingSurah || activePage === Page.Hadith;
 
   return (
@@ -174,6 +176,16 @@ const App: React.FC = () => {
         />
       )}
       
+      {showAiScholarButton && (
+        <button
+          onClick={() => changePage(Page.AIScholar)}
+          className="fixed z-50 bottom-44 right-4 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center rounded-full hover:scale-105 border-4 border-secondary transform active:scale-95 transition-all duration-300 ease-in-out shadow-lg"
+          aria-label="AI Scholar"
+        >
+          <CrownIcon className="w-8 h-8 text-white" />
+        </button>
+      )}
+
       {showAiButton && (
         <FloatingAIButton
           onClick={() => changePage(Page.AIAssistant)}
