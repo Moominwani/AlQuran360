@@ -182,8 +182,8 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                     <QuickActionButton Icon={QuranIcon} label="Quran" onClick={() => onNavigate(Page.Quran)} />
                     <QuickActionButton Icon={AzkarIcon} label="Azkar" />
                     <QuickActionButton Icon={NearbyMosqueIcon} label="Nearby Mo" />
-                    <QuickActionButton Icon={QiblaCompassIcon} label="Qibla" />
-                    <QuickActionButton Icon={TasbihIcon} label="Tasbih" />
+                    <QuickActionButton Icon={QiblaCompassIcon} label="Qibla" onClick={() => onNavigate(Page.Qibla)} />
+                    <QuickActionButton Icon={TasbihIcon} label="Tasbih" onClick={() => onNavigate(Page.Tasbeeh)} />
                 </div>
             </div>
         </div>

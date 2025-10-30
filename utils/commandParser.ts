@@ -89,6 +89,8 @@ export const parseCommand = (command: string): AppAction => {
     // === General Page Navigation (High Priority) ===
     if (/\b(hadith|hadees)\b/.test(lowerCommand)) return { type: 'navigate_page', payload: { page: Page.Hadith }, responseText: 'Opening the Hadith library.' };
     if (/\b(settings|theme|appearance)\b/.test(lowerCommand)) return { type: 'navigate_settings', payload: {}, responseText: 'Opening settings.' };
+    if (/\b(qibla|qiblah|direction|kaaba)\b/.test(lowerCommand)) return { type: 'navigate_page', payload: { page: Page.Qibla }, responseText: 'Opening the Qibla finder.' };
+    if (/\b(tasbeeh|tasbih|counter|dhikr|zikr)\b/.test(lowerCommand)) return { type: 'navigate_page', payload: { page: Page.Tasbeeh }, responseText: 'Opening the Tasbeeh counter.' };
     
     // === Prayer Times (with date logic) ===
     const prayerRegex = /\b(prayer|salah|salat|namaz|times?)\b/;

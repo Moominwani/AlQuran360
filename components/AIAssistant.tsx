@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Page } from '../types';
 import { parseCommand } from '../utils/commandParser';
 import { AIIcon, SendIcon, PlusIcon, MicrophoneIcon } from './icons/NavIcons';
-import { ChevronLeftIcon, RefreshIcon } from './icons/MiscIcons';
+import { HamburgerIcon } from './icons/MiscIcons';
+import ChatHistoryPanel from './ChatHistoryPanel';
 
 
 interface AIAssistantProps {
@@ -15,6 +16,12 @@ interface Message {
   id: number;
   sender: 'user' | 'bot';
   text: string;
+}
+
+interface ChatSession {
+    id: number;
+    messages: Message[];
+    timestamp: number;
 }
 
 const SuggestionChip: React.FC<{ text: string; onClick: () => void; }> = ({ text, onClick }) => (
@@ -41,30 +48,41 @@ const TypingIndicator = () => (
   </div>
 );
 
-const CHAT_HISTORY_KEY = 'ai_chat_history_v2';
+const CHAT_SESSIONS_KEY = 'ai_chat_sessions_v1';
 const initialBotMessage: Message = { id: 0, sender: 'bot', text: "As-salamu alaykum! I am your personal assistant for AlQuran360. How can I help you today?" };
 
-const getInitialMessages = (): Message[] => {
+const getInitialSessions = (): { sessions: ChatSession[], activeId: number | null } => {
     try {
-        const savedHistory = localStorage.getItem(CHAT_HISTORY_KEY);
-        if (savedHistory) {
-            const { messages: savedMessages, timestamp } = JSON.parse(savedHistory);
-            const isExpired = (Date.now() - timestamp) > 24 * 60 * 60 * 1000; 
-            if (!isExpired && Array.isArray(savedMessages) && savedMessages.length > 0) {
-                return savedMessages;
+        const savedData = localStorage.getItem(CHAT_SESSIONS_KEY);
+        if (savedData) {
+            const sessions: ChatSession[] = JSON.parse(savedData);
+            const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+            const recentSessions = sessions.filter(s => s.timestamp > twentyFourHoursAgo);
+
+            if (recentSessions.length > 0) {
+                // Return most recent session as active
+                const sortedSessions = recentSessions.sort((a, b) => b.timestamp - a.timestamp);
+                return { sessions: sortedSessions, activeId: sortedSessions[0].id };
             }
         }
     } catch (e) {
-        console.error("Failed to load chat history", e);
+        console.error("Failed to load chat sessions", e);
     }
-    return [initialBotMessage];
+    // No valid sessions found, start fresh
+    const newSession: ChatSession = { id: Date.now(), messages: [initialBotMessage], timestamp: Date.now() };
+    return { sessions: [newSession], activeId: newSession.id };
 };
 
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceCommand }) => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [messages, setMessages] = useState<Message[]>(getInitialMessages);
+  const [chatState, setChatState] = useState(getInitialSessions);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  const { sessions, activeId } = chatState;
+  const activeChat = sessions.find(s => s.id === activeId);
+  const messages = activeChat?.messages || [];
 
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -77,16 +95,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
 
     const handleViewportResize = () => {
       container.style.height = `${visualViewport.height}px`;
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     visualViewport.addEventListener('resize', handleViewportResize);
     handleViewportResize(); // Set initial height
 
-    return () => {
-      visualViewport.removeEventListener('resize', handleViewportResize);
-      if (container) container.style.height = '100vh';
-    };
+    return () => visualViewport.removeEventListener('resize', handleViewportResize);
   }, []);
 
   useEffect(() => {
@@ -94,20 +108,26 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
   }, [messages, isTyping]);
   
   useEffect(() => {
-    if (messages.length > 1) {
-        const history = {
-            messages,
-            timestamp: Date.now()
-        };
-        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history));
-    }
-  }, [messages]);
+    localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(sessions));
+  }, [sessions]);
+  
+  const updateMessagesInSession = (newMessages: Message[]) => {
+      setChatState(prevState => {
+          const newSessions = prevState.sessions.map(session =>
+              session.id === prevState.activeId
+                  ? { ...session, messages: newMessages, timestamp: Date.now() }
+                  : session
+          );
+          return { ...prevState, sessions: newSessions };
+      });
+  };
 
   const handleCommand = (command: string) => {
-    if (!command.trim()) return;
+    if (!command.trim() || !activeId) return;
 
     const userMessage: Message = { id: Date.now(), sender: 'user', text: command };
-    setMessages(prev => [...prev, userMessage]);
+    const currentMessages = activeChat?.messages || [];
+    updateMessagesInSession([...currentMessages, userMessage]);
     setIsTyping(true);
 
     const action = parseCommand(command);
@@ -116,7 +136,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
       setIsTyping(false);
       const responseText = action.responseText || 'Got it!';
       const botResponse: Message = { id: Date.now() + 1, sender: 'bot', text: responseText };
-      setMessages(prev => [...prev, botResponse]);
+      const updatedMessages = [...(activeChat?.messages || []), userMessage, botResponse];
+      updateMessagesInSession(updatedMessages);
 
       if (action.type !== 'unknown' && action.type !== 'greet') {
         setTimeout(() => onAction(action), 800);
@@ -131,31 +152,56 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
     handleCommand(inputValue);
   };
   
-  const handleResetChat = () => {
-    setMessages([initialBotMessage]);
-    localStorage.removeItem(CHAT_HISTORY_KEY);
+  const handleNewChat = () => {
+    const newSession: ChatSession = { id: Date.now(), messages: [initialBotMessage], timestamp: Date.now() };
+    setChatState(prevState => ({
+        sessions: [newSession, ...prevState.sessions],
+        activeId: newSession.id
+    }));
+    setIsHistoryOpen(false);
+  };
+
+  const handleSelectChat = (id: number) => {
+    setChatState(prevState => ({ ...prevState, activeId: id }));
+    setIsHistoryOpen(false);
+  };
+
+  const handleDeleteAllHistory = () => {
+      const newSession: ChatSession = { id: Date.now(), messages: [initialBotMessage], timestamp: Date.now() };
+      setChatState({ sessions: [newSession], activeId: newSession.id });
+      setIsHistoryOpen(false);
   };
 
   const showWelcomeScreen = messages.length <= 1;
 
   return (
-    <div ref={containerRef} className="fixed inset-0 z-50 bg-primary text-primary flex flex-col overflow-hidden transition-height duration-200 ease-out">
+    <div ref={containerRef} className="fixed inset-0 z-50 bg-primary text-primary flex flex-col overflow-hidden">
+      <ChatHistoryPanel 
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        sessions={sessions}
+        activeChatId={activeId}
+        onSelectChat={handleSelectChat}
+        onDeleteAll={handleDeleteAllHistory}
+        onNewChat={handleNewChat}
+        onBack={onBack}
+      />
       <header className="flex items-center justify-between p-4 flex-shrink-0 z-10 border-b border-primary">
         <button
-          onClick={onBack}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-secondary"
+          onClick={() => setIsHistoryOpen(true)}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary"
         >
-          <ChevronLeftIcon className="w-6 h-6 text-primary" />
+          <HamburgerIcon className="w-6 h-6 text-primary" />
         </button>
         <div className="text-primary font-semibold">
           AlQuran360 AI
         </div>
-        <button onClick={handleResetChat} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary" aria-label="New Chat">
-          <RefreshIcon className="w-6 h-6 text-primary" />
+        <button onClick={handleNewChat} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary" aria-label="New Chat">
+          <PlusIcon className="w-6 h-6 text-primary" />
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 flex flex-col">
+      <main className="flex-1 overflow-y-auto p-4 flex flex-col justify-end">
         {showWelcomeScreen ? (
           <div className="flex-1 flex flex-col justify-center items-center text-center animate-fade-in h-full px-4">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center shadow-lg mb-6">
@@ -165,7 +211,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
             <p className="text-secondary mt-2">How can I help you today?</p>
           </div>
         ) : (
-          <div className="mt-auto space-y-6">
+          <div className="space-y-6">
             {messages.slice(1).map((msg) => (
               <div
                 key={msg.id}
@@ -202,10 +248,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ onAction, onBack, onVoiceComm
                     <SuggestionChip text="Who developed this app?" onClick={() => handleCommand('who developed this app?')} />
                 </div>
             )}
-            <form onSubmit={handleSubmit} className="flex items-center space-x-2 max-w-2xl mx-auto bg-secondary rounded-full px-2 py-1 shadow-md">
-                <button type="button" className="w-10 h-10 flex items-center justify-center text-primary rounded-full hover:bg-tertiary flex-shrink-0">
-                    <PlusIcon className="w-6 h-6" />
-                </button>
+            <form onSubmit={handleSubmit} className="flex items-center space-x-2 max-w-2xl mx-auto bg-secondary rounded-full px-4 py-1 shadow-md">
                 <input
                     ref={inputRef}
                     type="text"

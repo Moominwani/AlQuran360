@@ -11,6 +11,8 @@ import Hadith from './pages/Hadith';
 import AIAssistant from './components/AIAssistant';
 import VoiceCommandUI from './components/VoiceCommandUI';
 import FloatingAIButton from './components/FloatingAIButton';
+import Qibla from './pages/Qibla';
+import Tasbeeh from './pages/Tasbeeh';
 
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.Home);
@@ -84,6 +86,10 @@ const App: React.FC = () => {
         return <Hadith />;
       case Page.Settings:
         return <Settings />;
+      case Page.Qibla:
+        return <Qibla />;
+      case Page.Tasbeeh:
+        return <Tasbeeh />;
       case Page.AIAssistant:
         return <AIAssistant onAction={handleAction} onBack={() => changePage(Page.Home)} onVoiceCommand={() => setIsVoiceAssistantOpen(true)} />;
       default:
