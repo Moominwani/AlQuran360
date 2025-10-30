@@ -13,6 +13,7 @@ import VoiceCommandUI from './components/VoiceCommandUI';
 import FloatingAIButton from './components/FloatingAIButton';
 import Qibla from './pages/Qibla';
 import Tasbeeh from './pages/Tasbeeh';
+import AIScholar from './pages/AIScholar';
 
 // Define a type for our history state
 interface HistoryState {
@@ -142,7 +143,9 @@ const App: React.FC = () => {
       case Page.Tasbeeh:
         return <Tasbeeh />;
       case Page.AIAssistant:
-        return <AIAssistant onAction={handleAction} onBack={() => window.history.back()} onVoiceCommand={() => setIsVoiceAssistantOpen(true)} />;
+        return <AIAssistant onAction={handleAction} onBack={() => window.history.back()} onVoiceCommand={() => setIsVoiceAssistantOpen(true)} onNavigate={changePage} />;
+      case Page.AIScholar:
+        return <AIScholar onBack={() => window.history.back()} />;
       default:
         return <Home onNavigate={changePage} />;
     }
@@ -152,13 +155,14 @@ const App: React.FC = () => {
     return <LocationManager onLocationSet={() => setLocationReady(true)} />;
   }
   
-  const showNav = !viewingSurah && activePage !== Page.AIAssistant;
-  const showAiButton = activePage !== Page.AIAssistant && !isVoiceAssistantOpen;
+  const pagesWithoutNav = [Page.AIAssistant, Page.AIScholar];
+  const showNav = !viewingSurah && !pagesWithoutNav.includes(activePage);
+  const showAiButton = !pagesWithoutNav.includes(activePage) && !isVoiceAssistantOpen;
   const isTucked = !!viewingSurah || activePage === Page.Hadith;
 
   return (
     <div className="min-h-screen font-sans flex flex-col bg-primary">
-      <main className={`flex-grow ${activePage === Page.AIAssistant ? '' : (showNav ? 'pb-20' : '')}`}>
+      <main className={`flex-grow ${pagesWithoutNav.includes(activePage) ? '' : (showNav ? 'pb-20' : '')}`}>
         {renderPage()}
       </main>
       
