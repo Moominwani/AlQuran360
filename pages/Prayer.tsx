@@ -49,6 +49,8 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
     const [searchLoading, setSearchLoading] = useState(false);
     const [isAutoLocating, setIsAutoLocating] = useState(false);
     const [searchError, setSearchError] = useState<string | null>(null);
+    const [showPermissionDeniedModal, setShowPermissionDeniedModal] = useState(false);
+
 
     const formatPrayerTime = useCallback((time24: string): string => {
         if (!time24) return '--:--';
@@ -89,29 +91,55 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
         setSearchResults([]);
     };
 
-    const handleUseCurrentLocation = () => {
-        setIsAutoLocating(true);
-        setSearchError(null);
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await response.json();
-                    const city = data.address.city || data.address.town || data.address.village || 'Current Location';
-                    handleLocationUpdate({ city, latitude, longitude });
-                } catch (e) {
-                     handleLocationUpdate({ city: 'Current Location', latitude, longitude });
-                } finally {
-                    setIsAutoLocating(false);
-                    setIsSearchFocused(false);
-                }
-            },
-            (err) => { 
-                setSearchError(`Location Error: ${err.message}`);
+    const handleUseCurrentLocation = async () => {
+        if (!navigator.geolocation) {
+            setSearchError("Geolocation is not supported by your browser.");
+            return;
+        }
+    
+        const handleSuccess = async (position: GeolocationPosition) => {
+            const { latitude, longitude } = position.coords;
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                const data = await response.json();
+                const city = data.address.city || data.address.town || data.address.village || 'Current Location';
+                handleLocationUpdate({ city, latitude, longitude });
+            } catch (e) {
+                 handleLocationUpdate({ city: 'Current Location', latitude, longitude });
+            } finally {
                 setIsAutoLocating(false);
+                setIsSearchFocused(false);
             }
-        );
+        };
+    
+        const handleError = (err: GeolocationPositionError) => {
+            setSearchError(`Location Error: ${err.message}`);
+            setIsAutoLocating(false);
+        };
+    
+        try {
+            // Use Permissions API for a better experience
+            const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+            if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt') {
+                setIsAutoLocating(true);
+                setSearchError(null);
+                navigator.geolocation.getCurrentPosition(handleSuccess, handleError);
+            } else if (permissionStatus.state === 'denied') {
+                setShowPermissionDeniedModal(true);
+            }
+            permissionStatus.onchange = () => {
+                if (permissionStatus.state === 'granted') {
+                     setIsAutoLocating(true);
+                     setSearchError(null);
+                     navigator.geolocation.getCurrentPosition(handleSuccess, handleError);
+                }
+            }
+        } catch (error) {
+            // Fallback for browsers that don't support Permissions API
+            setIsAutoLocating(true);
+            setSearchError(null);
+            navigator.geolocation.getCurrentPosition(handleSuccess, handleError);
+        }
     };
 
 
@@ -368,6 +396,20 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                     </div>
                 )}
             </div>
+            {showPermissionDeniedModal && (
+                <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-tertiary rounded-2xl w-full max-w-md p-6 text-primary">
+                        <h2 className="text-xl font-bold mb-4">Location Access Denied</h2>
+                        <p className="text-secondary my-4">You have previously denied location access. To use this feature, please enable location permissions for this site in your browser's settings.</p>
+                        <button
+                            onClick={() => setShowPermissionDeniedModal(false)}
+                            className="w-full accent-bg text-inverted font-bold py-2 px-4 rounded-lg"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

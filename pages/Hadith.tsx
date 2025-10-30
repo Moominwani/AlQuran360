@@ -526,42 +526,80 @@ const FavoritesList: React.FC<{ bookSlug: string; bookName: string; onBack: () =
 };
 
 const HadithContent: React.FC = () => {
-    const [view, setView] = useState<'books' | 'chapters' | 'hadiths' | 'favorites'>('books');
+    type HadithView = 'books' | 'chapters' | 'hadiths' | 'favorites';
+    interface HadithHistoryState {
+        view: HadithView;
+        book?: { slug: string; name: string };
+        chapter?: { number: string; name: string };
+    }
+
+    const [view, setView] = useState<HadithView>('books');
     const [selectedBook, setSelectedBook] = useState<{ slug: string; name: string } | null>(null);
     const [selectedChapter, setSelectedChapter] = useState<{ number: string; name: string } | null>(null);
 
+    const updateStateFromHistory = (state: HadithHistoryState | null) => {
+        if (!state || !state.view) {
+            setView('books');
+            setSelectedBook(null);
+            setSelectedChapter(null);
+            return;
+        }
+        setView(state.view);
+        setSelectedBook(state.book || null);
+        setSelectedChapter(state.chapter || null);
+    };
+
+    useEffect(() => {
+        const initialState: HadithHistoryState = { view: 'books' };
+        window.history.replaceState(initialState, '');
+
+        const handlePopState = (event: PopStateEvent) => {
+            updateStateFromHistory(event.state as HadithHistoryState);
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, []);
+
     const handleBookSelect = (slug: string, name: string) => {
-        setSelectedBook({ slug, name });
-        setView('chapters');
+        const book = { slug, name };
+        const newState: HadithHistoryState = { view: 'chapters', book };
+        window.history.pushState(newState, '');
+        updateStateFromHistory(newState);
     };
 
     const handleChapterSelect = (number: string, name: string) => {
-        setSelectedChapter({ number, name });
-        setView('hadiths');
+        if (!selectedBook) return;
+        const chapter = { number, name };
+        const newState: HadithHistoryState = { view: 'hadiths', book: selectedBook, chapter };
+        window.history.pushState(newState, '');
+        updateStateFromHistory(newState);
     };
     
     const handleShowFavorites = () => {
-        setView('favorites');
+        if (!selectedBook) return;
+        const newState: HadithHistoryState = { view: 'favorites', book: selectedBook };
+        window.history.pushState(newState, '');
+        updateStateFromHistory(newState);
     };
 
     const handleBack = () => {
-        if (view === 'hadiths' || view === 'favorites') {
-            setView('chapters');
-            setSelectedChapter(null);
-        } else if (view === 'chapters') {
-            setView('books');
-            setSelectedBook(null);
-        }
-    }
+        window.history.back();
+    };
 
     const renderContent = () => {
         switch (view) {
             case 'favorites':
-                return <FavoritesList bookSlug={selectedBook!.slug} bookName={selectedBook!.name} onBack={handleBack} />;
+                if (!selectedBook) return <BooksList onSelect={handleBookSelect} />;
+                return <FavoritesList bookSlug={selectedBook.slug} bookName={selectedBook.name} onBack={handleBack} />;
             case 'hadiths':
-                return <HadithsList bookSlug={selectedBook!.slug} chapterNumber={selectedChapter!.number} chapterName={selectedChapter!.name} onBack={handleBack} />;
+                if (!selectedBook || !selectedChapter) return <BooksList onSelect={handleBookSelect} />;
+                return <HadithsList bookSlug={selectedBook.slug} chapterNumber={selectedChapter.number} chapterName={selectedChapter.name} onBack={handleBack} />;
             case 'chapters':
-                return <ChaptersList bookSlug={selectedBook!.slug} bookName={selectedBook!.name} onSelect={handleChapterSelect} onSelectFavorites={handleShowFavorites} onBack={handleBack} />;
+                if (!selectedBook) return <BooksList onSelect={handleBookSelect} />;
+                return <ChaptersList bookSlug={selectedBook.slug} bookName={selectedBook.name} onSelect={handleChapterSelect} onSelectFavorites={handleShowFavorites} onBack={handleBack} />;
             case 'books':
             default:
                 return <BooksList onSelect={handleBookSelect} />;
@@ -574,6 +612,7 @@ const HadithContent: React.FC = () => {
         </div>
     );
 };
+
 
 const Hadith: React.FC = () => {
     return (
