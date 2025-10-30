@@ -17,10 +17,8 @@ const VoiceCommandUI: React.FC<VoiceCommandUIProps> = ({ isOpen, onClose, onActi
     const [transcript, setTranscript] = useState('');
     
     const recognitionRef = useRef<any>(null);
-    const statusRef = useRef(status);
 
-    useEffect(() => { statusRef.current = status; }, [status]);
-
+    // This effect runs once to setup the recognition object and its event listeners.
     useEffect(() => {
         if (!SpeechRecognitionAPI) {
             setStatus('unsupported');
@@ -29,21 +27,26 @@ const VoiceCommandUI: React.FC<VoiceCommandUIProps> = ({ isOpen, onClose, onActi
 
         const recognition = new SpeechRecognitionAPI();
         recognitionRef.current = recognition;
-        recognition.continuous = false;
+        
+        recognition.continuous = false; // Stop after the first final result
         recognition.lang = 'en-US';
         recognition.interimResults = true;
 
-        recognition.onstart = () => setStatus('listening');
+        recognition.onstart = () => {
+            setStatus('listening');
+        };
         
+        // This is called when recognition ends for any reason (result, no speech, error).
+        // Its only job is to reset the UI state to idle. It does not restart recognition.
         recognition.onend = () => {
-            if (statusRef.current === 'listening') {
-                setStatus('idle');
-            }
+            setStatus('idle');
         };
 
         recognition.onerror = (event: any) => {
-            console.error('Speech recognition error:', event.error);
-            setStatus('idle');
+            // Ignore common non-errors to prevent console spam.
+            if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                console.error('Speech recognition error:', event.error);
+            }
         };
 
         recognition.onresult = (event: any) => {
@@ -56,10 +59,15 @@ const VoiceCommandUI: React.FC<VoiceCommandUIProps> = ({ isOpen, onClose, onActi
                     interimTranscript += event.results[i][0].transcript;
                 }
             }
+            
             setTranscript(interimTranscript || `"${finalTranscript}"`);
             
             if (finalTranscript) {
+                // We have a result, so we're processing it.
+                // No need to keep listening. stop() will eventually trigger onend.
+                recognition.stop();
                 setStatus('processing');
+                
                 const command = finalTranscript.trim();
                 const action = parseCommand(command);
 
@@ -74,33 +82,38 @@ const VoiceCommandUI: React.FC<VoiceCommandUIProps> = ({ isOpen, onClose, onActi
                         onClose();
                     }
                 };
-
+                
                 setTimeout(() => executeAction(action), 500);
             }
         };
 
+        // Cleanup function for when the component unmounts
         return () => { 
-            if (recognitionRef.current) recognitionRef.current.abort(); 
+            if (recognitionRef.current) {
+                recognitionRef.current.abort();
+            }
             cancelSpeech();
         };
     }, [onAction, onClose]);
 
+    // This effect is the sole controller for starting/stopping recognition based on the modal's visibility.
     useEffect(() => {
         const recognition = recognitionRef.current;
-        if (isOpen && status === 'idle' && recognition) {
+        if (isOpen && recognition) {
             setTranscript('');
             try {
+                // start() will trigger the 'onstart' event listener.
                 recognition.start();
             } catch (e) {
-                console.error("Recognition start error:", e);
-                setStatus('idle');
+                // This can happen if start() is called when it's already started.
+                // The logic should prevent this, but it's a safe guard.
             }
-        } else if (!isOpen) {
-            recognition?.abort();
-            setStatus('idle');
+        } else if (!isOpen && recognition) {
+            // Abort brusquely stops recognition. This will trigger 'onend'.
+            recognition.abort();
         }
-    }, [isOpen, status]);
-    
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     const getStatusMessage = () => {
