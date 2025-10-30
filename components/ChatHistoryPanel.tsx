@@ -26,6 +26,13 @@ const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({ isOpen, onClose, se
         return firstUserMessage?.text || 'New Chat';
     };
 
+    const handleDeleteClick = () => {
+        const isConfirmed = window.confirm('Are you sure you want to delete all chat history? This action cannot be undone.');
+        if (isConfirmed) {
+            onDeleteAll();
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-40">
             {/* Backdrop */}
@@ -53,7 +60,7 @@ const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({ isOpen, onClose, se
                 </nav>
 
                 <footer className="p-4 border-t border-primary/20 flex-shrink-0 space-y-2">
-                    <button onClick={onDeleteAll} className="w-full text-left p-3 rounded-lg hover:bg-tertiary text-red-400">
+                    <button onClick={handleDeleteClick} className="w-full text-left p-3 rounded-lg hover:bg-tertiary text-red-400">
                         Delete All History
                     </button>
                      <button onClick={onBack} className="w-full text-left p-3 rounded-lg hover:bg-tertiary">

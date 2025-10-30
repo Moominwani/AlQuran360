@@ -1,15 +1,11 @@
 import { Page } from '../types';
-import { surahNameMap } from './surahNames';
+import { surahMetadata } from './surahMetadata';
 
-// Invert surahNameMap for easy lookup from number to name
+// Invert surahMetadata for easy lookup from number to name
 const surahNumberMap: { [key: number]: string } = {};
-Object.entries(surahNameMap).forEach(([name, number]) => {
-    if (!surahNumberMap[number] && !/The /.test(name)) {
-        surahNumberMap[number] = name;
-    }
+surahMetadata.forEach(surah => {
+    surahNumberMap[surah.number] = surah.englishName;
 });
-
-const allSurahNames = Object.keys(surahNameMap);
 
 // Levenshtein distance function for fuzzy string matching
 const levenshtein = (s1: string, s2: string): number => {
@@ -33,30 +29,48 @@ const levenshtein = (s1: string, s2: string): number => {
 
 const findBestSurahMatch = (query: string): { name: string; number: number } | null => {
     if (!query || query.trim().length < 2) return null;
-    const cleanedQuery = query.toLowerCase().replace(/^(al-?|the)\s*/, '').replace(/['-]/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleanedQuery = query.toLowerCase().replace(/^(al-?|as-?|at-?|ad-?|the)\s*/, '').replace(/['-]/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    let bestMatch: { name: string; number: number } | null = null;
+    let minDistance = 100;
 
-    // === Step 1: Prioritize perfect matches ===
-    for (const name of allSurahNames) {
-        const cleanedName = name.toLowerCase().replace(/^(al-?|the)\s*/, '').replace(/['-]/g, ' ').replace(/\s+/g, ' ').trim();
-        if (cleanedQuery === cleanedName) {
-            return { name, number: surahNameMap[name] };
+    for (const surah of surahMetadata) {
+        const namesToTest = [
+            surah.englishName,
+            surah.englishNameTranslation,
+            ...surah.aliases
+        ];
+
+        for (const name of namesToTest) {
+            const cleanedName = name.toLowerCase().replace(/^(al-?|as-?|at-?|ad-?|the)\s*/, '').replace(/['-]/g, ' ').replace(/\s+/g, ' ').trim();
+            
+            // Prioritize perfect or near-perfect matches
+            if (cleanedName.includes(cleanedQuery)) {
+                 const distance = Math.abs(cleanedName.length - cleanedQuery.length); // simple distance for includes
+                 if (distance < minDistance) {
+                    minDistance = distance;
+                    bestMatch = { name: surah.englishName, number: surah.number };
+                 }
+                 // If it's an exact match, return immediately
+                 if (distance === 0) return bestMatch;
+            }
         }
     }
-
-    // === Step 2: Fallback to fuzzy matching if no perfect match is found ===
-    let bestMatch: { name: string; number: number } | null = null;
-    let minDistance = 100; // Start with a high number
-
-    for (const name of allSurahNames) {
-         const cleanedName = name.toLowerCase().replace(/^(al-?|the)\s*/, '').replace(/['-]/g, ' ').replace(/\s+/g, ' ').trim();
-         const distance = levenshtein(cleanedQuery, cleanedName);
-
-         // A good match should have a distance less than half the query length, and be better than previous matches
-         const threshold = Math.max(1, Math.floor(cleanedQuery.length / 2));
-         if (distance < minDistance && distance < threshold) {
-             minDistance = distance;
-             bestMatch = { name, number: surahNameMap[name] };
-         }
+    
+    // If no substring match was found, use Levenshtein distance as a fallback
+    if (!bestMatch) {
+         for (const surah of surahMetadata) {
+            const namesToTest = [surah.englishName, ...surah.aliases];
+            for (const name of namesToTest) {
+                const cleanedName = name.toLowerCase().replace(/^(al-?|as-?|at-?|ad-?|the)\s*/, '').replace(/['-]/g, ' ').replace(/\s+/g, ' ').trim();
+                const distance = levenshtein(cleanedQuery, cleanedName);
+                const threshold = Math.max(1, Math.floor(cleanedQuery.length / 2.5));
+                if (distance < minDistance && distance <= threshold) {
+                    minDistance = distance;
+                    bestMatch = { name: surah.englishName, number: surah.number };
+                }
+            }
+        }
     }
     
     return bestMatch;
@@ -84,6 +98,26 @@ export const parseCommand = (command: string): AppAction => {
             payload: {}, 
             responseText: "AlQuran360 was developed with ❤️ by Moomin Wani. He is a passionate developer from Kashmir, dedicated to creating beautiful and useful applications for the Muslim community to help them in their daily religious practices." 
         };
+    }
+    
+    // === Quran Info Commands ===
+    const infoRegex = /(how many|number of|what is|what's the|is|was) (.*) (verses|ayahs|ayat|revelation|revealed in|english name|translation)/;
+    const infoMatch = lowerCommand.match(infoRegex);
+    if (infoMatch) {
+        const surahQuery = infoMatch[2].replace('surah', '').trim();
+        const surah = findBestSurahMatch(surahQuery);
+        if (surah) {
+            const metadata = surahMetadata.find(s => s.number === surah.number)!;
+            if (infoMatch[3].includes('verse') || infoMatch[3].includes('ayah')) {
+                return { type: 'greet', payload: {}, responseText: `${metadata.englishName} has ${metadata.numberOfAyahs} verses.` };
+            }
+            if (infoMatch[3].includes('revelation') || infoMatch[3].includes('revealed')) {
+                return { type: 'greet', payload: {}, responseText: `${metadata.englishName} is a ${metadata.revelationType} surah.` };
+            }
+             if (infoMatch[3].includes('english name') || infoMatch[3].includes('translation')) {
+                return { type: 'greet', payload: {}, responseText: `The English translation for Surah ${metadata.englishName} is "${metadata.englishNameTranslation}".` };
+            }
+        }
     }
 
     // === General Page Navigation (High Priority) ===
@@ -124,7 +158,8 @@ export const parseCommand = (command: string): AppAction => {
 
     if (surah) {
         const startPlayback = /\b(play|recite|listen)\b/.test(lowerCommand);
-        const surahName = surah.name.startsWith("Al-") || surah.name.startsWith("As-") || surah.name.startsWith("At-") || surah.name.startsWith("Ad-") ? surah.name : `Surah ${surah.name}`;
+        const metadata = surahMetadata.find(s => s.number === surah.number)!;
+        const surahName = metadata.englishName.startsWith("Al-") || metadata.englishName.startsWith("As-") || metadata.englishName.startsWith("At-") || metadata.englishName.startsWith("Ad-") ? metadata.englishName : `Surah ${metadata.englishName}`;
         
         let responseText = '';
         if (ayahNumber) {

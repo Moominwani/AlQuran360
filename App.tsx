@@ -14,6 +14,13 @@ import FloatingAIButton from './components/FloatingAIButton';
 import Qibla from './pages/Qibla';
 import Tasbeeh from './pages/Tasbeeh';
 
+// Define a type for our history state
+interface HistoryState {
+  page: Page;
+  viewingSurah: { number: number; startPlayback: boolean; ayahNumber?: number } | null;
+  pageProps: any;
+}
+
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.Home);
   const [pageProps, setPageProps] = useState<any>({});
@@ -27,18 +34,52 @@ const App: React.FC = () => {
       setLocationReady(true);
     }
   }, []);
+  
+  // Effect to manage browser history
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state) {
+        const { page, viewingSurah, pageProps } = event.state as HistoryState;
+        setActivePage(page);
+        setViewingSurah(viewingSurah);
+        setPageProps(pageProps);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // On initial load, replace the current history entry with our initial state
+    const initialState: HistoryState = {
+        page: Page.Home,
+        viewingSurah: null,
+        pageProps: {}
+    };
+    window.history.replaceState(initialState, '');
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
 
   const handleSurahSelect = (surahNumber: number, startPlayback: boolean = false) => {
-    setActivePage(Page.Quran); // Set context to Quran page for better back navigation
-    setViewingSurah({ number: surahNumber, startPlayback });
+    const surahState = { number: surahNumber, startPlayback };
+    const newState: HistoryState = { page: Page.Quran, viewingSurah: surahState, pageProps: {} };
+    window.history.pushState(newState, '');
+    
+    setActivePage(Page.Quran);
+    setViewingSurah(surahState);
     setIsVoiceAssistantOpen(false);
   };
 
   const handleBackFromSurah = () => {
-    setViewingSurah(null);
+    window.history.back();
   };
 
   const changePage = (page: Page) => {
+    const newState: HistoryState = { page, viewingSurah: null, pageProps: {} };
+    window.history.pushState(newState, '');
+    
     setViewingSurah(null);
     setActivePage(page);
     setPageProps({}); // Reset props on simple page change
@@ -46,21 +87,30 @@ const App: React.FC = () => {
   };
   
   const handleAction = (action: { type: string, payload: any }) => {
+    let newState: HistoryState | null = null;
+
     switch (action.type) {
       case 'navigate_page':
-        setPageProps(action.payload); // Store props for the page
+        newState = { page: action.payload.page, pageProps: action.payload, viewingSurah: null };
+        window.history.pushState(newState, '');
+        setPageProps(action.payload);
         setActivePage(action.payload.page);
         setViewingSurah(null);
         break;
       case 'navigate_surah':
-        setActivePage(Page.Quran); // For back navigation context
-        setViewingSurah({ 
+        const surahState = { 
             number: action.payload.surahNumber, 
             startPlayback: action.payload.startPlayback,
             ayahNumber: action.payload.ayahNumber,
-        });
+        };
+        newState = { page: Page.Quran, viewingSurah: surahState, pageProps: {} };
+        window.history.pushState(newState, '');
+        setActivePage(Page.Quran);
+        setViewingSurah(surahState);
         break;
       case 'navigate_settings':
+        newState = { page: Page.Settings, viewingSurah: null, pageProps: {} };
+        window.history.pushState(newState, '');
         setActivePage(Page.Settings);
         break;
       default:
@@ -91,7 +141,7 @@ const App: React.FC = () => {
       case Page.Tasbeeh:
         return <Tasbeeh />;
       case Page.AIAssistant:
-        return <AIAssistant onAction={handleAction} onBack={() => changePage(Page.Home)} onVoiceCommand={() => setIsVoiceAssistantOpen(true)} />;
+        return <AIAssistant onAction={handleAction} onBack={() => window.history.back()} onVoiceCommand={() => setIsVoiceAssistantOpen(true)} />;
       default:
         return <Home onNavigate={changePage} />;
     }
