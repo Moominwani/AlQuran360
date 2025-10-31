@@ -1,47 +1,25 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Surah } from '../types';
 import { SearchIcon, ChevronRightIcon } from '../components/icons/MiscIcons';
+import { surahMetadata } from '../utils/surahMetadata';
 
 interface QuranProps {
   onSurahSelect: (surahNumber: number) => void;
 }
 
 const Quran: React.FC<QuranProps> = ({ onSurahSelect }) => {
-  const [surahs, setSurahs] = useState<Surah[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  useEffect(() => {
-    const fetchSurahs = async () => {
-      try {
-        const response = await fetch('https://api.alquran.cloud/v1/surah');
-        if (!response.ok) {
-          throw new Error('Failed to fetch Surahs');
-        }
-        const data = await response.json();
-        if (data.code === 200) {
-          setSurahs(data.data);
-        } else {
-          throw new Error(data.status);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSurahs();
-  }, []);
-
   const filteredSurahs = useMemo(() => {
-    return surahs.filter(surah =>
+    // Cast surahMetadata to Surah[] to match expected type.
+    const allSurahs: Surah[] = surahMetadata.map(s => ({...s, name: s.name}));
+    
+    return allSurahs.filter(surah =>
       surah.englishName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       surah.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       surah.number.toString().includes(searchTerm)
     );
-  }, [surahs, searchTerm]);
+  }, [searchTerm]);
 
   return (
     <div className="p-4">
@@ -56,9 +34,6 @@ const Quran: React.FC<QuranProps> = ({ onSurahSelect }) => {
           className="w-full bg-secondary border border-primary rounded-lg py-2 pl-10 pr-4 text-primary placeholder-color focus:outline-none focus:ring-1 focus:ring-yellow-400"
         />
       </div>
-
-      {loading && <p className="text-center">Loading Surahs...</p>}
-      {error && <p className="text-center text-red-400">Error: {error}</p>}
 
       <div className="space-y-3">
         {filteredSurahs.map(surah => (

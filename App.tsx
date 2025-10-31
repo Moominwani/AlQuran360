@@ -15,6 +15,7 @@ import Qibla from './pages/Qibla';
 import Tasbeeh from './pages/Tasbeeh';
 import { CrownIcon } from './components/icons/MiscIcons';
 import AIScholarModal from './components/AIScholarModal';
+import { getQuranFromDB, saveQuranToDB } from './utils/db';
 
 // Define a type for our history state
 interface HistoryState {
@@ -31,12 +32,39 @@ const App: React.FC = () => {
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [isAiScholarOpen, setIsAiScholarOpen] = useState(false);
   const [showScholarTooltip, setShowScholarTooltip] = useState(false);
+  const [quranDownloadStatus, setQuranDownloadStatus] = useState<'idle' | 'downloading' | 'completed' | 'error'>('idle');
 
   useEffect(() => {
     const savedLocation = localStorage.getItem('userLocation');
     if (savedLocation) {
       setLocationReady(true);
     }
+
+    const initOfflineQuran = async () => {
+        try {
+            const offlineQuran = await getQuranFromDB();
+            if (!offlineQuran) {
+                if (navigator.onLine) {
+                    setQuranDownloadStatus('downloading');
+                    const response = await fetch('https://api.alquran.cloud/v1/quran/quran-uthmani');
+                    if (!response.ok) throw new Error('Network response was not ok.');
+                    const data = await response.json();
+                    if (data.code === 200 && data.data) {
+                        await saveQuranToDB(data.data);
+                        setQuranDownloadStatus('completed');
+                        setTimeout(() => setQuranDownloadStatus('idle'), 4000); // Hide after 4s
+                    } else {
+                        throw new Error(data.status || 'Failed to get Quran data');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Failed to initialize offline Quran:", error);
+            setQuranDownloadStatus('error');
+        }
+    };
+    initOfflineQuran();
+
   }, []);
   
   // Effect to manage browser history
@@ -192,12 +220,38 @@ const App: React.FC = () => {
   const showAiScholarButton = activePage === Page.Home && !isVoiceAssistantOpen;
   const isTucked = !!viewingSurah || activePage === Page.Hadith;
 
+  const renderQuranDownloadToast = () => {
+    if (quranDownloadStatus === 'idle') return null;
+
+    let message = '';
+    let bgColor = 'bg-secondary';
+    if (quranDownloadStatus === 'downloading') {
+      message = 'Downloading Quran for offline access...';
+      bgColor = 'bg-blue-500';
+    } else if (quranDownloadStatus === 'completed') {
+      message = 'Quran downloaded successfully!';
+      bgColor = 'bg-green-500';
+    } else if (quranDownloadStatus === 'error') {
+      message = 'Failed to download Quran for offline use.';
+      bgColor = 'bg-red-500';
+    }
+    
+    return (
+        <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-white text-sm shadow-lg z-50 ${bgColor} animate-fade-in-up`}>
+          {message}
+        </div>
+      );
+  };
+
+
   return (
     <div className="min-h-screen font-sans flex flex-col bg-primary">
       <main className={`flex-grow ${pagesWithoutNav.includes(activePage) ? '' : (showNav ? 'pb-20' : '')}`}>
         {renderPage()}
       </main>
       
+      {renderQuranDownloadToast()}
+
       <AIScholarModal isOpen={isAiScholarOpen} onClose={() => setIsAiScholarOpen(false)} />
 
       {isVoiceAssistantOpen && (

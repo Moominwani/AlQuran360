@@ -18,6 +18,12 @@ const AIScholarModal: React.FC<AIScholarModalProps> = ({ isOpen, onClose }) => {
       setIsLoading(true);
       setLoadError(false);
 
+      if (!navigator.onLine) {
+        setIsLoading(false);
+        setLoadError(true);
+        return;
+      }
+
       loadTimeoutRef.current = setTimeout(() => {
         setIsLoading(false);
         setLoadError(true);
@@ -95,15 +101,21 @@ const AIScholarModal: React.FC<AIScholarModalProps> = ({ isOpen, onClose }) => {
           {loadError && (
              <div className="absolute inset-0 flex flex-col items-center justify-center bg-tertiary z-10 rounded-b-xl text-center p-4">
                 <h3 className="text-lg font-semibold text-primary">Could Not Load Scholar</h3>
-                <p className="text-secondary my-2">The external website may not allow embedding.</p>
-                <a 
-                    href="https://islamgpt.info/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="mt-4 px-4 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600"
-                >
-                    Open in New Tab
-                </a>
+                {!navigator.onLine ? (
+                    <p className="text-secondary my-2">The AI Scholar requires an internet connection.</p>
+                ) : (
+                    <>
+                        <p className="text-secondary my-2">The external website may not allow embedding.</p>
+                        <a 
+                            href="https://islamgpt.info/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="mt-4 px-4 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600"
+                        >
+                            Open in New Tab
+                        </a>
+                    </>
+                )}
             </div>
           )}
           <div 

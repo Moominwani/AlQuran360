@@ -3,6 +3,7 @@ import { SurahDetailData, Ayah } from '../types';
 import { BackIcon } from '../components/icons/SurahDetailIcons';
 import AyahActions from '../components/AyahActions';
 import AudioPlayer from '../components/AudioPlayer';
+import { getQuranFromDB } from '../utils/db';
 
 interface SurahDetailProps {
   surahNumber: number;
@@ -30,29 +31,75 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
 
   useEffect(() => {
     const fetchSurahDetail = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,ar.alafasy`);
-        if (!response.ok) throw new Error('Failed to fetch Surah details');
-        
-        const data = await response.json();
-        if (data.code === 200) {
-          const textData = data.data[0];
-          const audioData = data.data[1];
-          const mergedAyahs = textData.ayahs.map((ayah: Ayah, index: number) => ({
-            ...ayah,
-            audio: audioData.ayahs[index].audio,
-          }));
-          setSurahData({ ...textData, ayahs: mergedAyahs });
-        } else {
-          throw new Error(data.status);
+        setLoading(true);
+        setError(null);
+        try {
+            // 1. Get Quran text from DB
+            const offlineData = await getQuranFromDB();
+            let textSurah: SurahDetailData | null = null;
+
+            if (offlineData?.surahs) {
+                const foundSurah = offlineData.surahs.find(s => s.number === surahNumber);
+                if (foundSurah) {
+                    textSurah = foundSurah as SurahDetailData;
+                }
+            }
+
+            // 2. Fetch audio edition if online and merge
+            let mergedSurah = textSurah;
+            if (navigator.onLine) {
+                try {
+                    const audioResponse = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/ar.alafasy`);
+                    if (audioResponse.ok) {
+                        const audioJson = await audioResponse.json();
+                        if (audioJson.code === 200 && textSurah) {
+                            const audioAyahs = audioJson.data.ayahs;
+                            const mergedAyahs = textSurah.ayahs.map((ayah: any, index: number) => ({
+                                ...ayah,
+                                audio: audioAyahs[index]?.audio || '',
+                            }));
+                            mergedSurah = { ...textSurah, ayahs: mergedAyahs };
+                        }
+                    }
+                } catch (audioError) {
+                    console.warn("Could not fetch audio, proceeding with text only.", audioError);
+                    if (mergedSurah) {
+                         const ayahsWithoutAudio = mergedSurah.ayahs.map((ayah: any) => ({ ...ayah, audio: '' }));
+                         mergedSurah = { ...mergedSurah, ayahs: ayahsWithoutAudio };
+                    }
+                }
+            } else if (mergedSurah) {
+                const ayahsWithoutAudio = mergedSurah.ayahs.map((ayah: any) => ({ ...ayah, audio: '' }));
+                mergedSurah = { ...mergedSurah, ayahs: ayahsWithoutAudio };
+            }
+
+            // 3. Fallback to network if offline data fails completely
+            if (!mergedSurah) {
+                console.warn("Offline data not found or failed, falling back to network.");
+                const response = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,ar.alafasy`);
+                if (!response.ok) throw new Error('Failed to fetch Surah details');
+                
+                const data = await response.json();
+                if (data.code === 200) {
+                    const textData = data.data[0];
+                    const audioData = data.data[1];
+                    const mergedAyahs = textData.ayahs.map((ayah: Ayah, index: number) => ({
+                        ...ayah,
+                        audio: audioData.ayahs[index].audio,
+                    }));
+                    setSurahData({ ...textData, ayahs: mergedAyahs });
+                } else {
+                    throw new Error(data.status);
+                }
+            } else {
+                setSurahData(mergedSurah);
+            }
+
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        } finally {
+            setLoading(false);
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
-      }
     };
     fetchSurahDetail();
   }, [surahNumber]);
@@ -190,8 +237,10 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   if (error) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p className="text-red-400">Error: {error}</p></div>;
   if (!surahData) return null;
 
+  const hasAudio = surahData && surahData.ayahs[0] && surahData.ayahs[0].audio;
+
   return (
-    <div className={`bg-primary text-primary min-h-screen allow-selection ${currentAyah ? 'pb-40' : 'pb-4'}`}>
+    <div className={`bg-primary text-primary min-h-screen allow-selection ${currentAyah && hasAudio ? 'pb-40' : 'pb-4'}`}>
       <header className="sticky top-0 bg-primary z-10 p-4 flex items-center justify-between border-b border-primary">
         <button onClick={onBack} className="p-2"><BackIcon className="w-6 h-6 text-primary" /></button>
         <div className="text-center">
@@ -238,6 +287,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
             <AyahActions
                 ayah={selectedAyah}
                 position={menuState.position}
+                hasAudio={hasAudio}
                 onClose={handleCloseMenu}
                 onPlayToEndOfJuz={handlePlayToEndOfJuz}
                 onRepeat={handleRepeat}
@@ -247,7 +297,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
          </>
       )}
 
-      {currentAyah && (
+      {currentAyah && hasAudio && (
         <AudioPlayer 
             surah={surahData}
             currentAyah={currentAyah}
