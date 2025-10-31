@@ -7,7 +7,6 @@ export enum Page {
   Settings = 'Settings',
   Qibla = 'Qibla',
   Tasbeeh = 'Tasbeeh',
-  AIScholar = 'AIScholar',
 }
 
 export interface PrayerTimes {

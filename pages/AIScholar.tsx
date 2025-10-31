@@ -36,7 +36,7 @@ const AIScholar: React.FC<AIScholarProps> = ({ onBack }) => {
             onLoad={() => setIsLoading(false)}
             style={{ 
               width: '100%', 
-              height: '3300px',
+              height: '3500px',
               border: 'none', 
               position: 'absolute', 
               top: 0, 
