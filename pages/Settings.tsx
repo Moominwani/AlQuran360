@@ -2,9 +2,10 @@ import React from 'react';
 import Appearance from './Appearance';
 import TimeFormat from './TimeFormat';
 import About from './About';
+import AboutAssistant from './AboutAssistant';
 import { ChevronRightIcon } from '../components/icons/MiscIcons';
 
-type SettingsView = 'main' | 'time' | 'appearance' | 'about';
+type SettingsView = 'main' | 'time' | 'appearance' | 'about' | 'aboutAssistant';
 
 interface SettingsProps {
     pageProps: { view?: SettingsView };
@@ -35,6 +36,9 @@ const Settings: React.FC<SettingsProps> = ({ pageProps, onNavigate }) => {
     if (view === 'about') {
         return <About onBack={handleBack} />;
     }
+    if (view === 'aboutAssistant') {
+        return <AboutAssistant onBack={handleBack} />;
+    }
 
     return (
         <div className="bg-primary text-primary min-h-full flex flex-col">
@@ -46,6 +50,7 @@ const Settings: React.FC<SettingsProps> = ({ pageProps, onNavigate }) => {
                 <SettingsLink label="Time Format" onClick={() => onNavigate({ view: 'time' })} />
                 <SettingsLink label="App Appearance" onClick={() => onNavigate({ view: 'appearance' })} />
                 <SettingsLink label="About AlQuran360" onClick={() => onNavigate({ view: 'about' })} />
+                <SettingsLink label="About Assistants" onClick={() => onNavigate({ view: 'aboutAssistant' })} />
             </main>
             
             <footer className="fixed bottom-20 left-0 right-0 text-center py-4 bg-primary text-secondary text-sm">

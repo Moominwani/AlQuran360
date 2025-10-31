@@ -111,7 +111,7 @@ const FloatingAIButton: React.FC<FloatingAIButtonProps> = ({ onClick, onLongPres
   const baseClasses = "fixed z-50 bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center border-4 border-secondary transform active:scale-95 transition-all duration-300 ease-in-out ai-button-animated shadow-lg";
   
   const dynamicClasses = isTuckedIn
-    ? 'top-1/2 -translate-y-1/2 -right-7 w-12 h-20 rounded-l-full justify-start pl-2 hover:right-0'
+    ? 'bottom-24 -right-7 w-12 h-20 rounded-l-full justify-center pl-2 hover:right-0'
     : 'bottom-24 right-4 w-16 h-16 rounded-full hover:scale-105';
 
   return (
@@ -129,12 +129,12 @@ const FloatingAIButton: React.FC<FloatingAIButtonProps> = ({ onClick, onLongPres
         {showInstruction && (
             <div
                 className={`
-                    absolute whitespace-nowrap bg-tertiary text-primary text-sm font-medium
+                    absolute whitespace-nowrap bg-tertiary text-sm font-medium
                     px-3 py-2 rounded-lg shadow-lg pointer-events-none animate-tooltip
                     right-full mr-3
                 `}
             >
-                Tap or long press me
+                <span className="relative z-10 text-primary">Tap or long press me</span>
                 <div
                     className={`
                         absolute w-3 h-3 bg-tertiary transform rotate-45
