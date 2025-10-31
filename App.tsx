@@ -214,11 +214,11 @@ const App: React.FC = () => {
     setIsAiScholarOpen(true);
   };
   
-  const pagesWithoutNav = [Page.AIAssistant];
+  const pagesWithoutNav = [Page.AIAssistant, Page.Tasbeeh];
   const showNav = !viewingSurah && !pagesWithoutNav.includes(activePage);
-  const showAiButton = !pagesWithoutNav.includes(activePage) && !isVoiceAssistantOpen;
-  const showAiScholarButton = activePage === Page.Home && !isVoiceAssistantOpen;
-  const isTucked = !!viewingSurah || activePage === Page.Hadith;
+  const showAiButton = !pagesWithoutNav.includes(activePage) && !isVoiceAssistantOpen && !isAiScholarOpen;
+  const showAiScholarButton = activePage === Page.Home && !isVoiceAssistantOpen && !isAiScholarOpen;
+  const isTucked = !!viewingSurah || activePage === Page.Hadith || activePage === Page.Tasbeeh;
 
   const renderQuranDownloadToast = () => {
     if (quranDownloadStatus === 'idle') return null;

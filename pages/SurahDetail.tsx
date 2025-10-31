@@ -237,7 +237,8 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   if (error) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p className="text-red-400">Error: {error}</p></div>;
   if (!surahData) return null;
 
-  const hasAudio = surahData && surahData.ayahs[0] && surahData.ayahs[0].audio;
+  // FIX: Explicitly convert the audio URL string check to a boolean to prevent type errors.
+  const hasAudio = !!(surahData && surahData.ayahs.length > 0 && surahData.ayahs[0] && surahData.ayahs[0].audio);
 
   return (
     <div className={`bg-primary text-primary min-h-screen allow-selection ${currentAyah && hasAudio ? 'pb-40' : 'pb-4'}`}>

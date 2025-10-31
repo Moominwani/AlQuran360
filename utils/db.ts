@@ -1,10 +1,25 @@
 const DB_NAME = 'AlQuran360DB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented DB version
 const QURAN_STORE_NAME = 'quran_text';
+const TASBEEH_STORE_NAME = 'tasbeeh_data';
+const SETTINGS_STORE_NAME = 'app_settings';
+
 const FULL_QURAN_KEY = 'full_quran_uthmani';
+const LAST_DHIKR_KEY = 'last_selected_dhikr_id';
 
 interface QuranData {
     surahs: any[]; // A more generic type to avoid complexity
+}
+
+export interface Dhikr {
+    id: string;
+    text: string;
+    ar: string;
+    translation: string;
+    count: number;
+    target: number;
+    rounds: number;
+    isCustom?: boolean;
 }
 
 let db: IDBDatabase;
@@ -30,6 +45,12 @@ export const initDB = (): Promise<IDBDatabase> => {
             const db = (event.target as IDBOpenDBRequest).result;
             if (!db.objectStoreNames.contains(QURAN_STORE_NAME)) {
                 db.createObjectStore(QURAN_STORE_NAME);
+            }
+            if (!db.objectStoreNames.contains(TASBEEH_STORE_NAME)) {
+                db.createObjectStore(TASBEEH_STORE_NAME, { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains(SETTINGS_STORE_NAME)) {
+                db.createObjectStore(SETTINGS_STORE_NAME);
             }
         };
     });
@@ -68,3 +89,110 @@ export const getQuranFromDB = async (): Promise<QuranData | null> => {
         };
     });
 };
+
+// --- Generic Settings Functions ---
+export const saveSetting = async (key: string, value: any): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(SETTINGS_STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(SETTINGS_STORE_NAME);
+        const request = store.put(value, key);
+        request.onsuccess = () => resolve();
+        request.onerror = (err) => {
+            console.error(`Error saving setting '${key}':`, err);
+            reject(`Could not save setting '${key}'`);
+        };
+    });
+};
+
+export const getSetting = async <T>(key: string): Promise<T | null> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(SETTINGS_STORE_NAME, 'readonly');
+        const store = transaction.objectStore(SETTINGS_STORE_NAME);
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = (err) => {
+            console.error(`Error getting setting '${key}':`, err);
+            reject(`Could not get setting '${key}'`);
+        };
+    });
+};
+
+
+// --- Tasbeeh Functions ---
+
+export const getTasbeehDhikrs = async (): Promise<Dhikr[]> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(TASBEEH_STORE_NAME, 'readonly');
+        const store = transaction.objectStore(TASBEEH_STORE_NAME);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = (err) => {
+            console.error("Error getting dhikrs:", err);
+            reject("Could not get dhikrs");
+        };
+    });
+};
+
+export const saveTasbeehDhikr = async (dhikr: Dhikr): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(TASBEEH_STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(TASBEEH_STORE_NAME);
+        const request = store.put(dhikr);
+        request.onsuccess = () => resolve();
+        request.onerror = (err) => {
+            console.error("Error saving dhikr:", err);
+            reject("Could not save dhikr");
+        };
+    });
+};
+
+export const deleteTasbeehDhikr = async (id: string): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(TASBEEH_STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(TASBEEH_STORE_NAME);
+        const request = store.delete(id);
+        request.onsuccess = () => resolve();
+        request.onerror = (err) => {
+            console.error("Error deleting dhikr:", err);
+            reject("Could not delete dhikr");
+        };
+    });
+};
+
+export const saveAllTasbeehDhikrs = async (dhikrs: Dhikr[]): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(TASBEEH_STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(TASBEEH_STORE_NAME);
+        let completed = 0;
+        
+        if (dhikrs.length === 0) {
+            resolve();
+            return;
+        }
+
+        dhikrs.forEach(dhikr => {
+            const request = store.put(dhikr);
+            request.onsuccess = () => {
+                completed++;
+                if (completed === dhikrs.length) {
+                    resolve();
+                }
+            };
+        });
+        
+        transaction.onerror = (err) => {
+            console.error("Error saving all dhikrs:", err);
+            reject("Could not save all dhikrs");
+        };
+    });
+};
+
+// Legacy functions for compatibility, now using generic settings functions
+export const getLastSelectedDhikrId = async (): Promise<string | null> => getSetting(LAST_DHIKR_KEY);
+export const saveLastSelectedDhikrId = async (id: string): Promise<void> => saveSetting(LAST_DHIKR_KEY, id);

@@ -121,7 +121,7 @@ export const parseCommand = (command: string): AppAction => {
         return { 
             type: 'greet', 
             payload: {}, 
-            responseText: "AlQuran360 was developed with ❤️ by Moomin Wani. He is a passionate developer from Kashmir, dedicated to creating beautiful and useful applications for the Muslim community to help them in their daily religious practices." 
+            responseText: "AlQuran360 is developed with ❤️ by Moomin Wani. He is a passionate developer from Kashmir, dedicated to creating beautiful and useful applications for the Muslim community to help them in their daily religious practices." 
         };
     }
     
