@@ -67,7 +67,7 @@ const AIScholarModal: React.FC<AIScholarModalProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center animate-fade-in" onClick={onClose}>
       <div 
         ref={modalRef}
-        className="bg-primary text-primary flex flex-col rounded-2xl shadow-2xl overflow-hidden absolute inset-x-2 inset-y-20 sm:inset-x-8 sm:inset-y-24"
+        className="bg-primary text-primary flex flex-col rounded-2xl shadow-2xl overflow-hidden absolute inset-x-2 inset-y-16 sm:inset-x-8 sm:inset-y-20"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center p-4 border-b border-primary flex-shrink-0 bg-secondary">
@@ -118,7 +118,6 @@ const AIScholarModal: React.FC<AIScholarModalProps> = ({ isOpen, onClose }) => {
                 height: '100%',
                 border: 'none', 
               }}
-              scrolling="no"
               title="Islamic AI Scholar"
               allowFullScreen
             >
