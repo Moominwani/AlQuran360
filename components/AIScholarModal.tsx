@@ -67,7 +67,7 @@ const AIScholarModal: React.FC<AIScholarModalProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
       <div 
         ref={modalRef}
-        className="bg-primary text-primary w-full max-w-4xl h-[90%] flex flex-col rounded-2xl shadow-2xl overflow-hidden"
+        className="bg-primary text-primary flex flex-col rounded-2xl shadow-2xl overflow-hidden w-[95vw] h-[85vh] max-w-5xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center p-4 border-b border-primary flex-shrink-0 bg-secondary">
@@ -107,7 +107,7 @@ const AIScholarModal: React.FC<AIScholarModalProps> = ({ isOpen, onClose }) => {
             </div>
           )}
           <div 
-            className="w-full h-full overflow-auto relative"
+            className="w-full h-full relative"
             style={{ visibility: isLoading || loadError ? 'hidden' : 'visible' }}
           >
             <iframe 
