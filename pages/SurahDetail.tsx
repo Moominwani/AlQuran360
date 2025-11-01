@@ -33,6 +33,13 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   
   const ayahRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const initialScrollDone = useRef(false);
+
+  // Reset scroll flag when surah changes
+  useEffect(() => {
+    initialScrollDone.current = false;
+  }, [surahNumber]);
+
 
   useEffect(() => {
     const fetchSurahDetail = async () => {
@@ -98,19 +105,47 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   }, [surahNumber]);
 
   useEffect(() => {
-    if (surahData && ayahNumber) {
-        const elementToScroll = ayahRefs.current[ayahNumber - 1];
-        if (elementToScroll) {
-            const scrollTimer = setTimeout(() => {
-                elementToScroll.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                if (!startPlayback) {
-                    setTempHighlightAyah(ayahNumber);
-                }
-            }, 500); // Increased timeout for reliability
-            return () => clearTimeout(scrollTimer);
-        }
+    // This effect handles the initial scroll to a specific ayah if provided
+    if (surahData && ayahNumber && !initialScrollDone.current) {
+      const elementToScroll = ayahRefs.current[ayahNumber - 1];
+      if (elementToScroll) {
+        const timer = setTimeout(() => {
+          elementToScroll.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (!startPlayback) {
+            setTempHighlightAyah(ayahNumber);
+          }
+          initialScrollDone.current = true; // Prevent this from running again
+        }, 300);
+        return () => clearTimeout(timer);
+      }
     }
   }, [surahData, ayahNumber, startPlayback]);
+  
+  useEffect(() => {
+    // This effect initializes the audio player state once the surah data is loaded
+    if (surahData && surahData.ayahs.length > 0) {
+        const initialAyah = ayahNumber
+            ? surahData.ayahs.find(a => a.numberInSurah === ayahNumber) || surahData.ayahs[0]
+            : surahData.ayahs[0];
+
+        if (startPlayback) {
+            const startIndex = surahData.ayahs.indexOf(initialAyah);
+            const allAyahsFromStart = surahData.ayahs.slice(startIndex);
+            resetPlaybackModes();
+            setPlaybackQueue(allAyahsFromStart);
+            setCurrentAyah(initialAyah);
+            setIsPlaying(true);
+            saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: initialAyah.numberInSurah });
+        } else {
+            // For regular view, just set the current ayah for the player without starting playback.
+            // This makes the player appear, ready to be used.
+            setCurrentAyah(initialAyah);
+            setIsPlaying(false);
+        }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surahData, startPlayback, ayahNumber, surahNumber]);
+
 
   useEffect(() => {
     if (tempHighlightAyah !== null) {
@@ -285,22 +320,6 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
     }
     setIsMenuOpen(false);
   };
-
-  useEffect(() => {
-    if (startPlayback && surahData && surahData.ayahs.length > 0) {
-        const ayahToStart = ayahNumber ? surahData.ayahs.find(a => a.numberInSurah === ayahNumber) : surahData.ayahs[0];
-        if (ayahToStart) {
-            const startIndex = surahData.ayahs.indexOf(ayahToStart);
-            const allAyahsFromStart = surahData.ayahs.slice(startIndex);
-            resetPlaybackModes();
-            setPlaybackQueue(allAyahsFromStart);
-            setCurrentAyah(ayahToStart);
-            setIsPlaying(true);
-            saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: ayahToStart.numberInSurah });
-        }
-    }
-  }, [startPlayback, surahData, ayahNumber, surahNumber]);
-
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p>Loading Surah...</p></div>;
   if (error) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p className="text-red-400">Error: {error}</p></div>;
