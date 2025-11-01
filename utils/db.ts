@@ -1,3 +1,5 @@
+import { Ayah } from '../types';
+
 const DB_NAME = 'AlQuran360DB';
 const DB_VERSION = 2; // Incremented DB version
 const QURAN_STORE_NAME = 'quran_text';
@@ -6,6 +8,13 @@ const SETTINGS_STORE_NAME = 'app_settings';
 
 const FULL_QURAN_KEY = 'full_quran_uthmani';
 const LAST_DHIKR_KEY = 'last_selected_dhikr_id';
+
+// New keys for Quran state
+const LAST_READ_LOCATION_KEY = 'quran_last_read_location';
+const LAST_PLAYED_LOCATION_KEY = 'quran_last_played_location';
+const FAVORITE_SURAHS_KEY = 'quran_favorite_surahs';
+const FAVORITE_AYAHS_KEY = 'quran_favorite_ayahs';
+
 
 interface QuranData {
     surahs: any[]; // A more generic type to avoid complexity
@@ -196,3 +205,40 @@ export const saveAllTasbeehDhikrs = async (dhikrs: Dhikr[]): Promise<void> => {
 // Legacy functions for compatibility, now using generic settings functions
 export const getLastSelectedDhikrId = async (): Promise<string | null> => getSetting(LAST_DHIKR_KEY);
 export const saveLastSelectedDhikrId = async (id: string): Promise<void> => saveSetting(LAST_DHIKR_KEY, id);
+
+// --- Quran State Functions ---
+export const saveLastReadLocation = (location: { surahNumber: number; ayahNumber: number; page: number; }) => saveSetting(LAST_READ_LOCATION_KEY, location);
+export const getLastReadLocation = () => getSetting<{ surahNumber: number; ayahNumber: number; page: number; }>(LAST_READ_LOCATION_KEY);
+export const saveLastPlayedLocation = (location: { surahNumber: number; ayahNumber: number; }) => saveSetting(LAST_PLAYED_LOCATION_KEY, location);
+export const getLastPlayedLocation = () => getSetting<{ surahNumber: number; ayahNumber: number; }>(LAST_PLAYED_LOCATION_KEY);
+
+export const getFavoriteSurahs = async (): Promise<number[]> => {
+    const favorites = await getSetting<number[]>(FAVORITE_SURAHS_KEY);
+    return favorites || [];
+};
+export const addFavoriteSurah = async (surahNumber: number) => {
+    const favorites = await getFavoriteSurahs();
+    if (!favorites.includes(surahNumber)) {
+        await saveSetting(FAVORITE_SURAHS_KEY, [...favorites, surahNumber]);
+    }
+};
+export const removeFavoriteSurah = async (surahNumber: number) => {
+    const favorites = await getFavoriteSurahs();
+    await saveSetting(FAVORITE_SURAHS_KEY, favorites.filter(n => n !== surahNumber));
+};
+
+// --- Ayah Favorites ---
+export const getFavoriteAyahs = async (): Promise<{ [key: number]: Ayah }> => {
+    const favorites = await getSetting<{ [key: number]: Ayah }>(FAVORITE_AYAHS_KEY);
+    return favorites || {};
+};
+export const addFavoriteAyah = async (ayah: Ayah) => {
+    const favorites = await getFavoriteAyahs();
+    favorites[ayah.number] = ayah;
+    await saveSetting(FAVORITE_AYAHS_KEY, favorites);
+};
+export const removeFavoriteAyah = async (ayahGlobalNumber: number) => {
+    const favorites = await getFavoriteAyahs();
+    delete favorites[ayahGlobalNumber];
+    await saveSetting(FAVORITE_AYAHS_KEY, favorites);
+};

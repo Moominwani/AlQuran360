@@ -1,14 +1,16 @@
 import React from 'react';
 import { Ayah } from '../types';
 import { PlayIcon, RepeatIcon, CopyIcon, ShareIcon } from './icons/PlayerIcons';
+import { CloseIcon, StarIcon, FilledStarIcon } from './icons/MiscIcons';
 
 interface AyahActionsProps {
   ayah: Ayah;
-  position: { top: number; left: number };
   hasAudio: boolean;
+  isAyahFavorite: boolean;
   onClose: () => void;
   onPlayToEndOfJuz: () => void;
   onRepeat: () => void;
+  onToggleAyahFavorite: () => void;
   onCopy: () => void;
   onShare: () => void;
 }
@@ -24,20 +26,23 @@ const ActionButton: React.FC<{ icon: React.ReactNode; text: string; onClick: () 
   </button>
 );
 
-const AyahActions: React.FC<AyahActionsProps> = ({ position, onClose, onPlayToEndOfJuz, onRepeat, onCopy, onShare, hasAudio }) => {
+const AyahActions: React.FC<AyahActionsProps> = ({ onClose, onPlayToEndOfJuz, onRepeat, onToggleAyahFavorite, onCopy, onShare, hasAudio, isAyahFavorite }) => {
   return (
-    <div
-      style={{ top: `${position.top}px`, left: `${position.left}px` }}
-      className="absolute z-30 w-64 -translate-x-1/2"
-    >
-        <div className="relative bg-secondary rounded-xl shadow-2xl p-2 animate-fade-in-up border border-primary">
-            <div 
-                className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-secondary transform rotate-45 border-t border-l border-primary"
-            ></div>
-            <ActionButton icon={<PlayIcon className="w-5 h-5 text-secondary"/>} text="Play to the end of Juz" onClick={onPlayToEndOfJuz} disabled={!hasAudio} />
-            <ActionButton icon={<RepeatIcon className="w-5 h-5 text-secondary"/>} text="Repeat selected Ayah" onClick={onRepeat} disabled={!hasAudio} />
-            <ActionButton icon={<CopyIcon className="w-5 h-5 text-secondary"/>} text="Copy" onClick={onCopy} />
-            <ActionButton icon={<ShareIcon className="w-5 h-5 text-secondary"/>} text="Share" onClick={onShare} />
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+        <div className="bg-secondary rounded-xl shadow-2xl p-4 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="font-bold text-lg text-primary">Actions</h3>
+                <button onClick={onClose} className="p-2 text-secondary hover:text-primary">
+                    <CloseIcon className="w-5 h-5"/>
+                </button>
+            </div>
+            <div className="space-y-1">
+                <ActionButton icon={<PlayIcon className="w-5 h-5 text-secondary"/>} text="Play to end of Juz" onClick={onPlayToEndOfJuz} disabled={!hasAudio} />
+                <ActionButton icon={<RepeatIcon className="w-5 h-5 text-secondary"/>} text="Repeat selected Ayah" onClick={onRepeat} disabled={!hasAudio} />
+                <ActionButton icon={isAyahFavorite ? <FilledStarIcon className="w-5 h-5 text-yellow-400"/> : <StarIcon className="w-5 h-5 text-secondary"/>} text={isAyahFavorite ? "Unfavorite Ayah" : "Favorite Ayah"} onClick={onToggleAyahFavorite} />
+                <ActionButton icon={<CopyIcon className="w-5 h-5 text-secondary"/>} text="Copy Ayah Text" onClick={onCopy} />
+                <ActionButton icon={<ShareIcon className="w-5 h-5 text-secondary"/>} text="Share Ayah" onClick={onShare} />
+            </div>
         </div>
     </div>
   );

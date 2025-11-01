@@ -161,6 +161,61 @@
       animation: tooltip-fade-in-out 6s ease-in-out forwards;
     }
 
+    /* AI Ayah Highlight */
+    @keyframes highlight-fade {
+      0% { background-color: rgba(250, 204, 21, 0.6); } /* yellow-400/60 */
+      100% { background-color: transparent; }
+    }
+    .highlight-ai-pulse {
+        animation: highlight-fade 3s ease-out forwards;
+    }
+
+    /* Audio Player Progress Bar */
+    input[type=range].audio-progress::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: #FFFFFF;
+        cursor: pointer;
+        margin-top: -6px; /* You need to specify a margin in Chrome, but in Firefox and IE it is automatic */
+        box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    }
+
+    input[type=range].audio-progress::-moz-range-thumb {
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: #FFFFFF;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    }
+    
+    /* Ruku Separator */
+    .ruku-separator {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        color: var(--color-secondary);
+        margin: 2rem 0;
+    }
+
+    .ruku-separator::before,
+    .ruku-separator::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid var(--border-primary);
+    }
+
+    .ruku-separator:not(:empty)::before {
+        margin-right: .5em;
+    }
+
+    .ruku-separator:not(:empty)::after {
+        margin-left: .5em;
+    }
+
 
     /* Light Theme (Default) */
     .light {

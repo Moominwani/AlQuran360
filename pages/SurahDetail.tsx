@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SurahDetailData, Ayah } from '../types';
 import { BackIcon } from '../components/icons/SurahDetailIcons';
 import AyahActions from '../components/AyahActions';
 import AudioPlayer from '../components/AudioPlayer';
-import { getQuranFromDB } from '../utils/db';
+import { getQuranFromDB, saveLastReadLocation, getFavoriteAyahs, addFavoriteAyah, removeFavoriteAyah, saveLastPlayedLocation } from '../utils/db';
+import { FilledStarIcon } from '../components/icons/MiscIcons';
 
 interface SurahDetailProps {
   surahNumber: number;
@@ -21,31 +22,30 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   
   const [selectedAyah, setSelectedAyah] = useState<Ayah | null>(null);
-  const [menuState, setMenuState] = useState<{ isOpen: boolean; position: { top: number; left: number } }>({ isOpen: false, position: { top: 0, left: 0 } });
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const [playbackQueue, setPlaybackQueue] = useState<Ayah[]>([]);
   const [repeatAyah, setRepeatAyah] = useState(false);
   const [replayTrigger, setReplayTrigger] = useState(0);
+
+  const [favoriteAyahs, setFavoriteAyahs] = useState<{[key: number]: Ayah}>({});
+  const [tempHighlightAyah, setTempHighlightAyah] = useState<number | null>(null);
   
   const ayahRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchSurahDetail = async () => {
         setLoading(true);
         setError(null);
         try {
-            // 1. Get Quran text from DB
             const offlineData = await getQuranFromDB();
             let textSurah: SurahDetailData | null = null;
-
             if (offlineData?.surahs) {
                 const foundSurah = offlineData.surahs.find(s => s.number === surahNumber);
-                if (foundSurah) {
-                    textSurah = foundSurah as SurahDetailData;
-                }
+                if (foundSurah) textSurah = foundSurah as SurahDetailData;
             }
 
-            // 2. Fetch audio edition if online and merge
             let mergedSurah = textSurah;
             if (navigator.onLine) {
                 try {
@@ -54,10 +54,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
                         const audioJson = await audioResponse.json();
                         if (audioJson.code === 200 && textSurah) {
                             const audioAyahs = audioJson.data.ayahs;
-                            const mergedAyahs = textSurah.ayahs.map((ayah: any, index: number) => ({
-                                ...ayah,
-                                audio: audioAyahs[index]?.audio || '',
-                            }));
+                            const mergedAyahs = textSurah.ayahs.map((ayah: any, index: number) => ({ ...ayah, audio: audioAyahs[index]?.audio || '' }));
                             mergedSurah = { ...textSurah, ayahs: mergedAyahs };
                         }
                     }
@@ -73,20 +70,13 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
                 mergedSurah = { ...mergedSurah, ayahs: ayahsWithoutAudio };
             }
 
-            // 3. Fallback to network if offline data fails completely
             if (!mergedSurah) {
-                console.warn("Offline data not found or failed, falling back to network.");
                 const response = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,ar.alafasy`);
                 if (!response.ok) throw new Error('Failed to fetch Surah details');
-                
                 const data = await response.json();
                 if (data.code === 200) {
-                    const textData = data.data[0];
-                    const audioData = data.data[1];
-                    const mergedAyahs = textData.ayahs.map((ayah: Ayah, index: number) => ({
-                        ...ayah,
-                        audio: audioData.ayahs[index].audio,
-                    }));
+                    const textData = data.data[0]; const audioData = data.data[1];
+                    const mergedAyahs = textData.ayahs.map((ayah: Ayah, index: number) => ({ ...ayah, audio: audioData.ayahs[index].audio }));
                     setSurahData({ ...textData, ayahs: mergedAyahs });
                 } else {
                     throw new Error(data.status);
@@ -94,6 +84,9 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
             } else {
                 setSurahData(mergedSurah);
             }
+
+            const favAyahs = await getFavoriteAyahs();
+            setFavoriteAyahs(favAyahs);
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred');
@@ -105,31 +98,97 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   }, [surahNumber]);
 
   useEffect(() => {
-    if (surahData && ayahNumber && ayahRefs.current[ayahNumber - 1]) {
-        setTimeout(() => { // Timeout to ensure render is complete
-            ayahRefs.current[ayahNumber - 1]?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-            });
-        }, 300); // Shorter delay
+    if (surahData && ayahNumber) {
+        const elementToScroll = ayahRefs.current[ayahNumber - 1];
+        if (elementToScroll) {
+            const scrollTimer = setTimeout(() => {
+                elementToScroll.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (!startPlayback) {
+                    setTempHighlightAyah(ayahNumber);
+                }
+            }, 500); // Increased timeout for reliability
+            return () => clearTimeout(scrollTimer);
+        }
     }
-  }, [surahData, ayahNumber]);
+  }, [surahData, ayahNumber, startPlayback]);
+
+  useEffect(() => {
+    if (tempHighlightAyah !== null) {
+        const timer = setTimeout(() => {
+            setTempHighlightAyah(null);
+        }, 3000); // Animation is 3s long
+        return () => clearTimeout(timer);
+    }
+  }, [tempHighlightAyah]);
+
+
+  const findTopmostVisibleAyah = useCallback(() => {
+    if (!surahData) return null;
+    for (let i = 0; i < ayahRefs.current.length; i++) {
+        const el = ayahRefs.current[i];
+        if (el) {
+            const rect = el.getBoundingClientRect();
+            if (rect.top >= 60) { // 60px offset for the header
+                return surahData.ayahs[i] || null;
+            }
+        }
+    }
+    return surahData.ayahs[surahData.ayahs.length - 1]; // Fallback to last ayah
+  }, [surahData]);
+
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    let scrollTimeout: ReturnType<typeof setTimeout>;
+    const handleScroll = () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+            const visibleAyah = findTopmostVisibleAyah();
+            if (visibleAyah && surahData) {
+                saveLastReadLocation({
+                    surahNumber: surahData.number,
+                    ayahNumber: visibleAyah.numberInSurah,
+                    page: visibleAyah.page
+                });
+            }
+        }, 500); // Debounce time
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => { // on unmount
+        scrollContainer.removeEventListener('scroll', handleScroll);
+        clearTimeout(scrollTimeout);
+      
+        if (surahData) {
+            const visibleAyah = findTopmostVisibleAyah();
+            if (visibleAyah) {
+                saveLastReadLocation({
+                    surahNumber: surahData.number,
+                    ayahNumber: visibleAyah.numberInSurah,
+                    page: visibleAyah.page
+                });
+            }
+            if (currentAyah) {
+                saveLastPlayedLocation({ surahNumber: surahData.number, ayahNumber: currentAyah.numberInSurah });
+            }
+        }
+    }
+  }, [surahData, currentAyah, findTopmostVisibleAyah]);
+
 
   const handleAyahClick = (e: React.MouseEvent, ayah: Ayah) => {
     e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
     setSelectedAyah(ayah);
-    
-    // Position menu below the ayah, centered horizontally
-    const top = rect.bottom + window.scrollY + 10;
-    const left = rect.left + rect.width / 2 + window.scrollX;
-
-    setMenuState({ isOpen: true, position: { top, left } });
-  };
-
-  const handleCloseMenu = () => {
-    setMenuState({ isOpen: false, position: { top: 0, left: 0 } });
-    setSelectedAyah(null);
+    setIsMenuOpen(true);
+    if (surahData) {
+        saveLastReadLocation({
+            surahNumber: surahData.number,
+            ayahNumber: ayah.numberInSurah,
+            page: ayah.page
+        });
+    }
   };
   
   const resetPlaybackModes = () => {
@@ -139,7 +198,10 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   }
   
   const handlePlayPause = () => {
-    if (currentAyah) setIsPlaying(!isPlaying);
+    if (currentAyah) {
+        setIsPlaying(!isPlaying);
+        saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: currentAyah.numberInSurah });
+    }
   };
 
   const handleNext = () => {
@@ -147,8 +209,10 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
     if (surahData && currentAyah) {
       const currentIndex = surahData.ayahs.findIndex(a => a.number === currentAyah.number);
       if (currentIndex < surahData.ayahs.length - 1) {
-        setCurrentAyah(surahData.ayahs[currentIndex + 1]);
+        const nextAyah = surahData.ayahs[currentIndex + 1];
+        setCurrentAyah(nextAyah);
         setIsPlaying(true);
+        saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: nextAyah.numberInSurah });
       } else {
         setIsPlaying(false);
       }
@@ -160,8 +224,10 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
     if (surahData && currentAyah) {
       const currentIndex = surahData.ayahs.findIndex(a => a.number === currentAyah.number);
       if (currentIndex > 0) {
-        setCurrentAyah(surahData.ayahs[currentIndex - 1]);
+        const prevAyah = surahData.ayahs[currentIndex - 1];
+        setCurrentAyah(prevAyah);
         setIsPlaying(true);
+        saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: prevAyah.numberInSurah });
       }
     }
   };
@@ -191,7 +257,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
     setPlaybackQueue(remainingAyahsInJuz);
     setCurrentAyah(remainingAyahsInJuz[0]);
     setIsPlaying(true);
-    handleCloseMenu();
+    setIsMenuOpen(false);
   };
 
   const handleRepeat = () => {
@@ -200,49 +266,52 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
     setRepeatAyah(true);
     setCurrentAyah(selectedAyah);
     setIsPlaying(true);
-    handleCloseMenu();
+    setIsMenuOpen(false);
   };
 
-  const handleCopy = () => {
+  const toggleAyahFavorite = async () => {
     if (!selectedAyah) return;
-    navigator.clipboard.writeText(selectedAyah.text);
-    handleCloseMenu();
-  };
-
-  const handleShare = () => {
-    if (!selectedAyah || !surahData) return;
-    if (navigator.share) {
-      navigator.share({
-        title: `Quran ${surahData.englishName}:${selectedAyah.numberInSurah}`,
-        text: `"${selectedAyah.text}" - Quran ${surahData.number}:${selectedAyah.numberInSurah}`,
+    const isFav = !!favoriteAyahs[selectedAyah.number];
+    if (isFav) {
+      await removeFavoriteAyah(selectedAyah.number);
+      setFavoriteAyahs(prev => {
+        const next = {...prev};
+        delete next[selectedAyah.number];
+        return next;
       });
+    } else {
+      await addFavoriteAyah(selectedAyah);
+      setFavoriteAyahs(prev => ({...prev, [selectedAyah.number]: selectedAyah}));
     }
-    handleCloseMenu();
+    setIsMenuOpen(false);
   };
 
   useEffect(() => {
     if (startPlayback && surahData && surahData.ayahs.length > 0) {
-        const firstAyah = surahData.ayahs[0];
-        const allAyahs = surahData.ayahs;
-        
-        resetPlaybackModes();
-        setPlaybackQueue(allAyahs);
-        setCurrentAyah(firstAyah);
-        setIsPlaying(true);
+        const ayahToStart = ayahNumber ? surahData.ayahs.find(a => a.numberInSurah === ayahNumber) : surahData.ayahs[0];
+        if (ayahToStart) {
+            const startIndex = surahData.ayahs.indexOf(ayahToStart);
+            const allAyahsFromStart = surahData.ayahs.slice(startIndex);
+            resetPlaybackModes();
+            setPlaybackQueue(allAyahsFromStart);
+            setCurrentAyah(ayahToStart);
+            setIsPlaying(true);
+            saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: ayahToStart.numberInSurah });
+        }
     }
-  }, [startPlayback, surahData]);
+  }, [startPlayback, surahData, ayahNumber, surahNumber]);
 
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p>Loading Surah...</p></div>;
   if (error) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p className="text-red-400">Error: {error}</p></div>;
   if (!surahData) return null;
 
-  // FIX: Explicitly convert the audio URL string check to a boolean to prevent type errors.
-  const hasAudio = !!(surahData && surahData.ayahs.length > 0 && surahData.ayahs[0] && surahData.ayahs[0].audio);
+  const hasAudio = !!(surahData?.ayahs?.[0]?.audio);
+  let lastRuku = -1;
 
   return (
-    <div className={`bg-primary text-primary min-h-screen allow-selection ${currentAyah && hasAudio ? 'pb-40' : 'pb-4'}`}>
-      <header className="sticky top-0 bg-primary z-10 p-4 flex items-center justify-between border-b border-primary">
+    <div ref={scrollContainerRef} className={`bg-primary text-primary min-h-screen allow-selection ${currentAyah && hasAudio ? 'pb-40' : 'pb-4'}`}>
+      <header className="sticky top-0 bg-primary/80 backdrop-blur-sm z-10 p-4 flex items-center justify-between border-b border-primary">
         <button onClick={onBack} className="p-2"><BackIcon className="w-6 h-6 text-primary" /></button>
         <div className="text-center">
             <h1 className="text-xl font-bold text-primary">{surahData.englishName}</h1>
@@ -258,44 +327,72 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
                 {surahData.revelationType} • {surahData.numberOfAyahs} VERSES
             </p>
         </div>
+        
+        {surahData.number !== 1 && surahData.number !== 9 && (
+            <p className="text-center font-amiri text-2xl text-primary">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
+        )}
 
-        {surahData.ayahs.map((ayah, index) => (
-          <div 
-            key={ayah.number} 
-            ref={el => { ayahRefs.current[ayah.numberInSurah - 1] = el; }}
-            onClick={(e) => handleAyahClick(e, ayah)}
-            className={`cursor-pointer rounded-lg p-2 transition-colors duration-300 border-b border-primary pb-6
-              ${ayahNumber === ayah.numberInSurah ? 'bg-yellow-500/20' : ''}
-              ${currentAyah?.number === ayah.number ? 'bg-green-500/20' : ''}
-              ${selectedAyah?.number === ayah.number ? 'bg-blue-500/20' : ''}
-            `}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-sm font-bold bg-secondary text-secondary px-2 py-1 rounded">
-                {surahData.number}:{ayah.numberInSurah}
-              </span>
+        {surahData.ayahs.map((ayah) => {
+          const showRukuSeparator = ayah.ruku !== lastRuku && lastRuku !== -1;
+          lastRuku = ayah.ruku;
+          const isCurrent = currentAyah?.number === ayah.number;
+          const isTempHighlighted = tempHighlightAyah === ayah.numberInSurah;
+          const isFavorited = !!favoriteAyahs[ayah.number];
+          
+          return (
+          <React.Fragment key={ayah.number}>
+            {showRukuSeparator && (
+                <div className="ruku-separator">
+                    <span className="text-sm px-2 bg-primary">Ruku {ayah.ruku}</span>
+                </div>
+            )}
+            <div 
+              ref={el => { ayahRefs.current[ayah.numberInSurah - 1] = el; }}
+              onClick={(e) => handleAyahClick(e, ayah)}
+              className={`
+                cursor-pointer rounded-lg p-2 transition-all duration-200
+                border-l-4
+                hover:bg-tertiary
+                active:bg-green-500/10 active:scale-[0.98]
+                ${isTempHighlighted ? 'highlight-ai-pulse' : ''}
+                ${isCurrent ? 'bg-green-500/20 border-green-500' : 'border-transparent'}
+              `}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <span className={`text-sm font-bold px-2 py-1 rounded transition-colors duration-300 bg-secondary ${isCurrent ? 'accent-text' : 'text-secondary'}`}>
+                  {surahData.number}:{ayah.numberInSurah}
+                </span>
+                {isFavorited && <FilledStarIcon className="w-5 h-5 text-yellow-400" />}
+              </div>
+              <p className={`text-right font-amiri text-3xl leading-loose transition-colors duration-300 ${isCurrent ? 'accent-text' : 'text-primary'}`}>
+                {ayah.text}
+              </p>
             </div>
-            <p className="text-right font-amiri text-3xl leading-loose text-primary">
-              {ayah.text}
-            </p>
-          </div>
-        ))}
+          </React.Fragment>
+          );
+        })}
       </div>
       
-      {menuState.isOpen && selectedAyah && (
-         <>
-            <div className="fixed inset-0 z-20" onClick={handleCloseMenu}></div>
-            <AyahActions
-                ayah={selectedAyah}
-                position={menuState.position}
-                hasAudio={hasAudio}
-                onClose={handleCloseMenu}
-                onPlayToEndOfJuz={handlePlayToEndOfJuz}
-                onRepeat={handleRepeat}
-                onCopy={handleCopy}
-                onShare={handleShare}
-            />
-         </>
+      {isMenuOpen && selectedAyah && (
+        <AyahActions
+          ayah={selectedAyah}
+          hasAudio={hasAudio}
+          isAyahFavorite={!!favoriteAyahs[selectedAyah.number]}
+          onClose={() => setIsMenuOpen(false)}
+          onPlayToEndOfJuz={handlePlayToEndOfJuz}
+          onRepeat={handleRepeat}
+          onToggleAyahFavorite={toggleAyahFavorite}
+          onCopy={() => { navigator.clipboard.writeText(selectedAyah.text); setIsMenuOpen(false); }}
+          onShare={() => {
+            if (navigator.share) {
+              navigator.share({
+                title: `Quran ${surahData.englishName}:${selectedAyah.numberInSurah}`,
+                text: `"${selectedAyah.text}" - Quran ${surahData.number}:${selectedAyah.numberInSurah}`,
+              });
+            }
+            setIsMenuOpen(false);
+          }}
+        />
       )}
 
       {currentAyah && hasAudio && (

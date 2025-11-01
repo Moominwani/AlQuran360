@@ -120,8 +120,8 @@ const App: React.FC = () => {
 }, []);
 
 
-  const handleSurahSelect = (surahNumber: number, startPlayback: boolean = false) => {
-    const surahState = { number: surahNumber, startPlayback };
+  const handleSurahSelect = (surahNumber: number, startPlayback: boolean = false, ayahNumber?: number) => {
+    const surahState = { number: surahNumber, startPlayback, ayahNumber };
     const newState: HistoryState = { page: Page.Quran, viewingSurah: surahState, pageProps: {} };
     window.history.pushState(newState, '');
     
