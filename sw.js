@@ -1,65 +1,18 @@
 
-const CACHE_NAME = 'alquran360-cache-v2';
-const API_CACHE_NAME = 'alquran360-api-cache-v2';
+const STATIC_CACHE_NAME = 'alquran360-static-v3';
+const API_CACHE_NAME = 'alquran360-api-v3';
+const FONT_CACHE_NAME = 'alquran360-fonts-v3';
 
-const APP_SHELL_URLS = [
+// Precache the main app shell and critical third-party CSS.
+// Other assets (like React from the CDN) will be cached on first use.
+const STATIC_RESOURCES_TO_PRECACHE = [
     '/',
     '/index.html',
     '/manifest.json',
     '/icon-192x192.png',
     '/icon-512x512.png',
-    // Scripts
-    '/index.tsx',
-    '/App.tsx',
-    '/types.ts',
-    '/constants.ts',
-    '/TopBar.tsx',
-    // Components
-    '/components/BottomNav.tsx',
-    '/components/AyahActions.tsx',
-    '/components/AudioPlayer.tsx',
-    '/components/LocationModal.tsx',
-    '/components/AboutModal.tsx',
-    '/components/AIAssistant.tsx',
-    '/components/VoiceCommandUI.tsx',
-    '/components/FloatingAIButton.tsx',
-    '/components/ChatHistoryPanel.tsx',
-    '/components/LocationManager.tsx',
-    '/components/SettingsModal.tsx',
-    '/components/AIScholarModal.tsx',
-    // Icons
-    '/components/icons/NavIcons.tsx',
-    '/components/icons/PlayerIcons.tsx',
-    '/components/icons/SurahDetailIcons.tsx',
-    '/components/icons/QiblaIcons.tsx',
-    '/components/icons/MiscIcons.tsx',
-    // Contexts
-    '/contexts/ThemeContext.tsx',
-    '/contexts/TimeFormatContext.tsx',
-    // Hooks
-    '/hooks/useGeolocation.ts',
-    // Pages
-    '/pages/Home.tsx',
-    '/pages/Quran.tsx',
-    '/pages/SurahDetail.tsx',
-    '/pages/Prayer.tsx',
-    '/pages/Hadith.tsx',
-    '/pages/Settings.tsx',
-    '/pages/Qibla.tsx',
-    '/pages/Tasbeeh.tsx',
-    '/pages/Favorites.tsx',
-    '/pages/About.tsx',
-    '/pages/Appearance.tsx',
-    '/pages/TimeFormat.tsx',
-    '/pages/AIScholar.tsx',
-    '/pages/AboutAssistant.tsx',
-    // Utils
-    '/utils/db.ts',
-    '/utils/surahMetadata.ts',
-    '/utils/surahNames.ts',
-    '/utils/juzMetadata.ts',
-    '/utils/commandParser.ts',
-    '/utils/tts.ts'
+    'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
+    'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap',
 ];
 
 const API_ORIGINS = [
@@ -70,65 +23,79 @@ const API_ORIGINS = [
     'https://nominatim.openstreetmap.org'
 ];
 
-self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Force the new service worker to activate immediately
+// On install, precache the static resources
+self.addEventListener('install', event => {
+  console.log('Service Worker: Installing...');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('Opened cache and caching app shell');
-      return cache.addAll(APP_SHELL_URLS);
+    caches.open(STATIC_CACHE_NAME).then(cache => {
+      console.log('Service Worker: Caching App Shell and Static Resources...');
+      return cache.addAll(STATIC_RESOURCES_TO_PRECACHE);
     }).catch(error => {
-      console.error('Failed to cache app shell during install:', error);
+      console.error('Failed to cache static resources during install:', error);
     })
   );
+  self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME, API_CACHE_NAME];
+// On activate, clean up old caches
+self.addEventListener('activate', event => {
+  console.log('Service Worker: Activating...');
+  const cacheWhitelist = [STATIC_CACHE_NAME, API_CACHE_NAME, FONT_CACHE_NAME];
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            console.log('Deleting old cache:', cacheName);
+        cacheNames.map(cacheName => {
+          if (!cacheWhitelist.includes(cacheName)) {
+            console.log('Service Worker: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim()) // Take control of all clients immediately
+    }).then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
   const { request } = event;
-  const requestUrl = new URL(request.url);
+  const url = new URL(request.url);
 
-  const isApiUrl = API_ORIGINS.some(origin => requestUrl.origin === origin);
-  const isNavigation = request.mode === 'navigate';
+  // Strategy 1: Google Fonts (Stale-While-Revalidate)
+  if (url.origin === 'https://fonts.gstatic.com') {
+    event.respondWith(
+      caches.open(FONT_CACHE_NAME).then(cache => {
+        return cache.match(request).then(cachedResponse => {
+          const networkFetch = fetch(request).then(networkResponse => {
+            cache.put(request, networkResponse.clone());
+            return networkResponse;
+          });
+          return cachedResponse || networkFetch;
+        });
+      })
+    );
+    return;
+  }
 
-  // Strategy for API calls: Network falling back to Cache, with a final fallback.
-  if (isApiUrl) {
+  // Strategy 2: API Calls (Network falling back to Cache)
+  if (API_ORIGINS.some(origin => url.origin === origin)) {
     event.respondWith(
       fetch(request)
         .then(networkResponse => {
-          // Successful network response. Cache it and return it.
-          return caches.open(API_CACHE_NAME).then(cache => {
-            if (networkResponse.ok) {
-              cache.put(request, networkResponse.clone());
-            }
-            return networkResponse;
-          });
+          if (networkResponse.ok) {
+            const responseClone = networkResponse.clone();
+            caches.open(API_CACHE_NAME).then(cache => {
+              cache.put(request, responseClone);
+            });
+          }
+          return networkResponse;
         })
         .catch(() => {
-          // Network failed. Try to serve from cache.
           return caches.match(request).then(cachedResponse => {
             if (cachedResponse) {
               return cachedResponse;
             }
-            // If not in cache either, return a custom error Response.
-            // This prevents the browser's generic offline page.
-            const errorResponse = { error: "You are offline and this data isn't cached." };
-            return new Response(JSON.stringify(errorResponse), {
-              status: 408, // Request Timeout
+            return new Response(JSON.stringify({ error: "Offline and data not available in cache." }), {
+              status: 503,
+              statusText: "Service Unavailable",
               headers: { 'Content-Type': 'application/json' }
             });
           });
@@ -136,34 +103,26 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  
-  // Strategy for non-API calls (app shell, assets, etc.): Cache first.
-  event.respondWith(
-    caches.match(request)
-      .then(cachedResponse => {
-        // If we have a response in cache, serve it.
-        if (cachedResponse) {
-          return cachedResponse;
-        }
 
-        // Otherwise, go to the network.
-        return fetch(request)
-          .then(networkResponse => {
-            // Cache the new response for future use.
-            return caches.open(CACHE_NAME).then(cache => {
-              if (networkResponse.status === 200 || networkResponse.type === 'opaque') {
-                 cache.put(request, networkResponse.clone());
-              }
-              return networkResponse;
-            });
-          })
-          .catch(() => {
-            // If network fails AND it's a page navigation, show the offline fallback page.
-            if (isNavigation) {
-              return caches.match('/');
-            }
-            // For other assets (images, etc.), just let it fail. It won't crash the app.
-          });
-      })
+  // Strategy 3: All other requests (JS, CSS from CDN, images, app shell) (Cache First)
+  event.respondWith(
+    caches.match(request).then(cachedResponse => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      return fetch(request).then(networkResponse => {
+        return caches.open(STATIC_CACHE_NAME).then(cache => {
+          if(networkResponse.ok) {
+            cache.put(request, networkResponse.clone());
+          }
+          return networkResponse;
+        });
+      }).catch(() => {
+         if (request.mode === 'navigate') {
+            return caches.match('/index.html');
+         }
+      });
+    })
   );
 });
