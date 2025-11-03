@@ -2,19 +2,70 @@ const CACHE_NAME = 'alquran360-cache-v1';
 const API_CACHE_NAME = 'alquran360-api-cache-v1';
 
 const APP_SHELL_URLS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192x192.png',
-  '/icon-512x512.png',
-  '/index.tsx', // This represents the main app logic file
-  // Core Dependencies
-  'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
-  'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap',
-  // JS Modules from importmap to ensure offline functionality
-  'https://aistudiocdn.com/react@^19.2.0',
-  'https://aistudiocdn.com/react-dom@^19.2.0/client.js',
-  'https://aistudiocdn.com/@google/genai@^1.27.0'
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/icon-192x192.png',
+    '/icon-512x512.png',
+    // Scripts
+    '/index.tsx',
+    '/App.tsx',
+    '/types.ts',
+    '/constants.ts',
+    '/TopBar.tsx',
+    // Components
+    '/components/BottomNav.tsx',
+    '/components/AyahActions.tsx',
+    '/components/AudioPlayer.tsx',
+    '/components/LocationModal.tsx',
+    '/components/AboutModal.tsx',
+    '/components/AIAssistant.tsx',
+    '/components/VoiceCommandUI.tsx',
+    '/components/FloatingAIButton.tsx',
+    '/components/ChatHistoryPanel.tsx',
+    '/components/LocationManager.tsx',
+    '/components/SettingsModal.tsx',
+    '/components/AIScholarModal.tsx',
+    // Icons
+    '/components/icons/NavIcons.tsx',
+    '/components/icons/PlayerIcons.tsx',
+    '/components/icons/SurahDetailIcons.tsx',
+    '/components/icons/QiblaIcons.tsx',
+    '/components/icons/MiscIcons.tsx',
+    // Contexts
+    '/contexts/ThemeContext.tsx',
+    '/contexts/TimeFormatContext.tsx',
+    // Hooks
+    '/hooks/useGeolocation.ts',
+    // Pages
+    '/pages/Home.tsx',
+    '/pages/Quran.tsx',
+    '/pages/SurahDetail.tsx',
+    '/pages/Prayer.tsx',
+    '/pages/Hadith.tsx',
+    '/pages/Settings.tsx',
+    '/pages/Qibla.tsx',
+    '/pages/Tasbeeh.tsx',
+    '/pages/Favorites.tsx',
+    '/pages/About.tsx',
+    '/pages/Appearance.tsx',
+    '/pages/TimeFormat.tsx',
+    '/pages/AIScholar.tsx',
+    '/pages/AboutAssistant.tsx',
+    // Utils
+    '/utils/db.ts',
+    '/utils/surahMetadata.ts',
+    '/utils/surahNames.ts',
+    '/utils/juzMetadata.ts',
+    '/utils/commandParser.ts',
+    '/utils/tts.ts',
+    // Core Dependencies from CDN
+    'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
+    'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap',
+    // JS Modules from importmap to ensure offline functionality
+    'https://aistudiocdn.com/react@^19.2.0',
+    'https://aistudiocdn.com/react-dom@^19.2.0/client.js',
+    'https://aistudiocdn.com/@google/genai@^1.27.0'
 ];
 
 const API_ORIGINS = [
