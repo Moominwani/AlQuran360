@@ -1,18 +1,16 @@
-// A new, more robust version to guarantee offline functionality.
-const CACHE_VERSION = 'v6';
-const STATIC_CACHE = `alquran360-static-${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `alquran360-dynamic-${CACHE_VERSION}`;
+// This version implements a robust offline-first strategy.
+const CACHE_VERSION = 'v7';
+const STATIC_CACHE = `alquran30-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `alquran30-dynamic-${CACHE_VERSION}`;
 const ALL_CACHES = [STATIC_CACHE, DYNAMIC_CACHE];
 
-// Pre-cache only the essential, same-origin app shell files.
-// This is more reliable than trying to pre-cache third-party assets.
+// Pre-cache the essential app shell. Using relative paths is more reliable.
 const APP_SHELL_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/index.tsx',
-  '/icon-192x192.png',
-  '/icon-512x512.png'
+  './',
+  './index.html',
+  './manifest.json',
+  './icon-192x192.png',
+  './icon-512x512.png'
 ];
 
 // On install, pre-cache the app shell.
@@ -22,14 +20,11 @@ self.addEventListener('install', event => {
     caches.open(STATIC_CACHE)
       .then(cache => {
         console.log('[SW] Pre-caching App Shell');
-        // Use individual add requests to see if a specific asset fails
-        return Promise.all(
-            APP_SHELL_ASSETS.map(asset => {
-                return cache.add(asset).catch(reason => {
-                    console.error(`[SW] Failed to cache ${asset}:`, reason);
-                });
-            })
-        );
+        // Use addAll for atomic caching. It will fail if any asset is not found.
+        return cache.addAll(APP_SHELL_ASSETS);
+      })
+      .catch(error => {
+        console.error('[SW] App Shell pre-caching failed:', error);
       })
   );
   self.skipWaiting();
@@ -61,14 +56,21 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // Strategy for same-origin app shell files: Cache First.
-  // This ensures the core app loads instantly offline.
-  if (url.origin === self.location.origin && APP_SHELL_ASSETS.includes(url.pathname)) {
-    event.respondWith(caches.match(request));
+  // Strategy 1: For navigation requests (the HTML page), use Network Falling Back to Cache.
+  // This is the key fix for the "start offline" issue.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => {
+        // If the network is unavailable, serve the main app shell from the cache.
+        // We cached './' during install, so this should always be available.
+        return caches.match('./');
+      })
+    );
     return;
   }
-  
-  // Strategy for APIs: Network first, falling back to cache.
+
+  // Strategy 2: For API calls, use Network first, falling back to cache.
+  // This ensures data is as fresh as possible.
   const isApiCall = [
     'api.aladhan.com',
     'api.alquran.cloud',
@@ -86,36 +88,31 @@ self.addEventListener('fetch', event => {
           }
           return networkResponse;
         }).catch(() => {
-          return cache.match(request).then(cachedResponse => {
-            return cachedResponse || new Response(JSON.stringify({ error: "You are offline." }), {
-              status: 503, headers: { 'Content-Type': 'application/json' }
-            });
-          });
+          // If network fails, try to serve from cache.
+          return cache.match(request);
         });
       })
     );
     return;
   }
 
-  // Strategy for everything else (CDNs for React, Tailwind, Fonts): Stale-While-Revalidate.
-  // This is the key fix: it caches the exact CDN URLs as they are requested.
+  // Strategy 3: For other requests (CDN scripts, fonts, etc.), use Cache First, then Network.
+  // This is fast and efficient for static assets that don't change often.
   event.respondWith(
-    caches.open(DYNAMIC_CACHE).then(cache => {
-      return cache.match(request).then(cachedResponse => {
-        const fetchPromise = fetch(request).then(networkResponse => {
+    caches.match(request).then(cachedResponse => {
+      // Return from cache if found
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      // Otherwise, fetch from network and cache it
+      return fetch(request).then(networkResponse => {
+        return caches.open(DYNAMIC_CACHE).then(cache => {
           if (networkResponse.ok) {
             cache.put(request, networkResponse.clone());
           }
           return networkResponse;
-        }).catch(err => {
-            // If network fails, and we don't have it in cache, we can't do anything for this asset.
-            // The browser will show a resource load error, but the app shell itself will have loaded.
-            console.warn('[SW] Network request failed for:', request.url, err);
         });
-
-        // Return from cache immediately if available, otherwise wait for network.
-        // This makes the app fast and offline-capable after the first visit.
-        return cachedResponse || fetchPromise;
       });
     })
   );
