@@ -1,7 +1,7 @@
-const CACHE_NAME = 'alquran360-cache-v1';
-const API_CACHE_NAME = 'alquran360-api-cache-v1';
 
-// Only precache the local app shell. External assets will be cached on first use by the fetch handler.
+const CACHE_NAME = 'alquran360-cache-v2';
+const API_CACHE_NAME = 'alquran360-api-cache-v2';
+
 const APP_SHELL_URLS = [
     '/',
     '/index.html',
@@ -71,13 +71,13 @@ const API_ORIGINS = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Force the new service worker to activate immediately
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('Opened cache and caching app shell');
       return cache.addAll(APP_SHELL_URLS);
     }).catch(error => {
       console.error('Failed to cache app shell during install:', error);
-      throw error;
     })
   );
 });
@@ -94,59 +94,76 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim()) // Take control of all clients immediately
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  const requestUrl = new URL(event.request.url);
+  const { request } = event;
+  const requestUrl = new URL(request.url);
 
   const isApiUrl = API_ORIGINS.some(origin => requestUrl.origin === origin);
+  const isNavigation = request.mode === 'navigate';
 
-  // Strategy: Network falling back to Cache for APIs
+  // Strategy for API calls: Network falling back to Cache, with a final fallback.
   if (isApiUrl) {
     event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          // If the fetch is successful, cache the response and return it
-          return caches.open(API_CACHE_NAME).then((cache) => {
+      fetch(request)
+        .then(networkResponse => {
+          // Successful network response. Cache it and return it.
+          return caches.open(API_CACHE_NAME).then(cache => {
             if (networkResponse.ok) {
-              cache.put(event.request, networkResponse.clone());
+              cache.put(request, networkResponse.clone());
             }
             return networkResponse;
           });
         })
         .catch(() => {
-          // If the network fails (offline), try to get the response from the cache.
-          return caches.match(event.request);
+          // Network failed. Try to serve from cache.
+          return caches.match(request).then(cachedResponse => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            // If not in cache either, return a custom error Response.
+            // This prevents the browser's generic offline page.
+            const errorResponse = { error: "You are offline and this data isn't cached." };
+            return new Response(JSON.stringify(errorResponse), {
+              status: 408, // Request Timeout
+              headers: { 'Content-Type': 'application/json' }
+            });
+          });
         })
     );
     return;
   }
-
-  // Strategy: Cache First, then Network for App Shell & other assets (including external CDNs)
+  
+  // Strategy for non-API calls (app shell, assets, etc.): Cache first.
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      
-      return fetch(event.request).then((networkResponse) => {
-        // For non-API requests, cache them in the main app cache
-        return caches.open(CACHE_NAME).then((cache) => {
-          // Cache opaque responses (for CDNs without CORS) and regular responses
-          if (networkResponse.status === 200 || networkResponse.type === 'opaque') {
-             cache.put(event.request, networkResponse.clone());
-          }
-          return networkResponse;
-        });
-      });
-    }).catch(error => {
-      // If everything fails, and it's a navigation request, show the root file (which should be cached)
-      console.log('Fetch failed; returning offline page instead.', error);
-      if (event.request.mode === 'navigate') {
-        return caches.match('/');
-      }
-    })
+    caches.match(request)
+      .then(cachedResponse => {
+        // If we have a response in cache, serve it.
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        // Otherwise, go to the network.
+        return fetch(request)
+          .then(networkResponse => {
+            // Cache the new response for future use.
+            return caches.open(CACHE_NAME).then(cache => {
+              if (networkResponse.status === 200 || networkResponse.type === 'opaque') {
+                 cache.put(request, networkResponse.clone());
+              }
+              return networkResponse;
+            });
+          })
+          .catch(() => {
+            // If network fails AND it's a page navigation, show the offline fallback page.
+            if (isNavigation) {
+              return caches.match('/');
+            }
+            // For other assets (images, etc.), just let it fail. It won't crash the app.
+          });
+      })
   );
 });
