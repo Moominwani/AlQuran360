@@ -3,7 +3,7 @@ import { Surah, Ayah } from '../types';
 import { StarIcon, FilledStarIcon } from '../components/icons/MiscIcons';
 import { surahMetadata } from '../utils/surahMetadata';
 import { juzToSurahAyah } from '../utils/juzMetadata';
-import { getLastReadLocation, getLastPlayedLocation, getFavoriteSurahs, addFavoriteSurah, removeFavoriteSurah, getFavoriteAyahs } from '../utils/db';
+import { getLastReadLocation, getLastPlayedLocation, getFavoriteSurahs, addFavoriteSurah, removeFavoriteSurah, getFavoriteAyahs, getLastReadJuz, getLastPlayedJuz } from '../utils/db';
 
 interface QuranProps {
   onSurahSelect: (surahNumber: number, startPlayback?: boolean, ayahNumber?: number) => void;
@@ -11,20 +11,6 @@ interface QuranProps {
 
 type QuranTab = 'surah' | 'juz' | 'bookmarks';
 type BookmarkTab = 'surahs' | 'ayahs';
-
-const KhatamQuranCard: React.FC = () => (
-    <div className="bg-secondary p-4 rounded-2xl flex items-center justify-between col-span-2">
-        <div>
-            <p className="font-bold text-primary">Khatam Quran</p>
-            <p className="text-sm text-secondary">Start New Reading Plan</p>
-        </div>
-        <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-        </div>
-    </div>
-);
 
 const SummaryCard: React.FC<{
     title: string;
@@ -55,21 +41,27 @@ const Quran: React.FC<QuranProps> = ({ onSurahSelect }) => {
   const [activeBookmarkTab, setActiveBookmarkTab] = useState<BookmarkTab>('surahs');
   const [lastRead, setLastRead] = useState<{ surahNumber: number, ayahNumber: number, page: number } | null>(null);
   const [lastPlayed, setLastPlayed] = useState<{ surahNumber: number, ayahNumber: number } | null>(null);
+  const [lastReadJuz, setLastReadJuz] = useState<{ juz: number, surahNumber: number, ayahNumber: number } | null>(null);
+  const [lastPlayedJuz, setLastPlayedJuz] = useState<{ juz: number, surahNumber: number, ayahNumber: number } | null>(null);
   const [favoriteSurahs, setFavoriteSurahs] = useState<number[]>([]);
   const [favoriteAyahs, setFavoriteAyahs] = useState<Ayah[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [read, played, favorites, favAyahsData] = await Promise.all([
+      const [read, played, favorites, favAyahsData, readJuz, playedJuz] = await Promise.all([
         getLastReadLocation(),
         getLastPlayedLocation(),
         getFavoriteSurahs(),
-        getFavoriteAyahs()
+        getFavoriteAyahs(),
+        getLastReadJuz(),
+        getLastPlayedJuz(),
       ]);
       setLastRead(read);
       setLastPlayed(played);
       setFavoriteSurahs(favorites);
       setFavoriteAyahs(Object.values(favAyahsData).sort((a,b) => a.number - b.number));
+      setLastReadJuz(readJuz);
+      setLastPlayedJuz(playedJuz);
     };
     fetchData();
   }, []);
@@ -121,21 +113,32 @@ const Quran: React.FC<QuranProps> = ({ onSurahSelect }) => {
     <div className="p-4 pb-20">
       <h1 className="text-2xl font-bold mb-4 text-primary">Quran</h1>
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <KhatamQuranCard />
         <SummaryCard 
-            title="Last Recitation"
+            title="Last Read Surah"
             surahName={lastRead ? surahMetadata[lastRead.surahNumber - 1].englishName : "Not Set"}
-            detail={lastRead ? `Juz ${juzToSurahAyah.find(j=>j.surah === lastRead.surahNumber)?.juz}, Page ${lastRead.page}` : "-"}
+            detail={lastRead ? `Ayah ${lastRead.ayahNumber}, Page ${lastRead.page}` : "-"}
             surahNumber={lastRead?.surahNumber}
             isFavorite={lastRead ? favoriteSurahs.includes(lastRead.surahNumber) : false}
             onBookmark={lastRead ? () => toggleFavorite(lastRead.surahNumber) : undefined}
             onClick={() => lastRead && onSurahSelect(lastRead.surahNumber, false, lastRead.ayahNumber)}
         />
         <SummaryCard 
-            title="Last Played"
+            title="Last Played Surah"
             surahName={lastPlayed ? surahMetadata[lastPlayed.surahNumber - 1].englishName : "Not Set"}
             detail={lastPlayed ? `Ayah ${lastPlayed.ayahNumber}` : "-"}
             onClick={() => lastPlayed && onSurahSelect(lastPlayed.surahNumber, true, lastPlayed.ayahNumber)}
+        />
+        <SummaryCard 
+            title="Last Read Juz"
+            surahName={lastReadJuz ? `Juz ${lastReadJuz.juz}` : "Not Set"}
+            detail={lastReadJuz ? `at ${surahMetadata[lastReadJuz.surahNumber - 1].englishName}, Ayah ${lastReadJuz.ayahNumber}` : "-"}
+            onClick={() => lastReadJuz && onSurahSelect(lastReadJuz.surahNumber, false, lastReadJuz.ayahNumber)}
+        />
+        <SummaryCard 
+            title="Last Played Juz"
+            surahName={lastPlayedJuz ? `Juz ${lastPlayedJuz.juz}` : "Not Set"}
+            detail={lastPlayedJuz ? `at ${surahMetadata[lastPlayedJuz.surahNumber - 1].englishName}, Ayah ${lastPlayedJuz.ayahNumber}` : "-"}
+            onClick={() => lastPlayedJuz && onSurahSelect(lastPlayedJuz.surahNumber, true, lastPlayedJuz.ayahNumber)}
         />
       </div>
 

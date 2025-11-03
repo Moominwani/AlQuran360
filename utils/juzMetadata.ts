@@ -30,3 +30,13 @@ export const juzToSurahAyah = [
     { juz: 29, surah: 67, ayah: 1 },
     { juz: 30, surah: 78, ayah: 1 }
 ];
+
+export const getJuzNumber = (surahNumber: number, ayahNumber: number): number => {
+    for (let i = juzToSurahAyah.length - 1; i >= 0; i--) {
+        const juzInfo = juzToSurahAyah[i];
+        if (surahNumber > juzInfo.surah || (surahNumber === juzInfo.surah && ayahNumber >= juzInfo.ayah)) {
+            return juzInfo.juz;
+        }
+    }
+    return 1; // Default to Juz 1
+};

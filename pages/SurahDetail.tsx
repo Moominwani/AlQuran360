@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { SurahDetailData, Ayah } from '../types';
 import { BackIcon } from '../components/icons/SurahDetailIcons';
 import AyahActions from '../components/AyahActions';
 import AudioPlayer from '../components/AudioPlayer';
-import { getQuranFromDB, saveLastReadLocation, getFavoriteAyahs, addFavoriteAyah, removeFavoriteAyah, saveLastPlayedLocation } from '../utils/db';
+import { getQuranFromDB, saveLastReadLocation, getFavoriteAyahs, addFavoriteAyah, removeFavoriteAyah, saveLastPlayedLocation, saveLastReadJuz, saveLastPlayedJuz } from '../utils/db';
 import { FilledStarIcon } from '../components/icons/MiscIcons';
+import { getJuzNumber } from '../utils/juzMetadata';
 
 interface SurahDetailProps {
   surahNumber: number;
@@ -104,19 +105,17 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
     fetchSurahDetail();
   }, [surahNumber]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // This effect handles the initial scroll to a specific ayah if provided
     if (surahData && ayahNumber && !initialScrollDone.current) {
       const elementToScroll = ayahRefs.current[ayahNumber - 1];
       if (elementToScroll) {
-        const timer = setTimeout(() => {
-          elementToScroll.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          if (!startPlayback) {
-            setTempHighlightAyah(ayahNumber);
-          }
-          initialScrollDone.current = true; // Prevent this from running again
-        }, 300);
-        return () => clearTimeout(timer);
+        // Use 'auto' for an instant jump, which is more reliable for initial setup.
+        elementToScroll.scrollIntoView({ behavior: 'auto', block: 'center' });
+        if (!startPlayback) {
+          setTempHighlightAyah(ayahNumber);
+        }
+        initialScrollDone.current = true; // Prevent this from running again
       }
     }
   }, [surahData, ayahNumber, startPlayback]);
@@ -135,7 +134,6 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
             setPlaybackQueue(allAyahsFromStart);
             setCurrentAyah(initialAyah);
             setIsPlaying(true);
-            saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: initialAyah.numberInSurah });
         } else {
             // For regular view, just set the current ayah for the player without starting playback.
             // This makes the player appear, ready to be used.
@@ -145,6 +143,16 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surahData, startPlayback, ayahNumber, surahNumber]);
+
+  useEffect(() => {
+    // This effect centralizes saving the last played location whenever the current ayah changes.
+    if (currentAyah) {
+        const location = { surahNumber: surahNumber, ayahNumber: currentAyah.numberInSurah };
+        saveLastPlayedLocation(location);
+        const juz = getJuzNumber(location.surahNumber, location.ayahNumber);
+        saveLastPlayedJuz({ juz, ...location });
+    }
+  }, [currentAyah, surahNumber]);
 
 
   useEffect(() => {
@@ -181,11 +189,15 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
         scrollTimeout = setTimeout(() => {
             const visibleAyah = findTopmostVisibleAyah();
             if (visibleAyah && surahData) {
-                saveLastReadLocation({
+                const location = {
                     surahNumber: surahData.number,
                     ayahNumber: visibleAyah.numberInSurah,
                     page: visibleAyah.page
-                });
+                };
+                saveLastReadLocation(location);
+                const juz = getJuzNumber(location.surahNumber, location.ayahNumber);
+                // FIX: Removed `page` property from the object passed to `saveLastReadJuz` to match expected type.
+                saveLastReadJuz({ juz, surahNumber: location.surahNumber, ayahNumber: location.ayahNumber });
             }
         }, 500); // Debounce time
     };
@@ -199,18 +211,19 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
         if (surahData) {
             const visibleAyah = findTopmostVisibleAyah();
             if (visibleAyah) {
-                saveLastReadLocation({
+                 const location = {
                     surahNumber: surahData.number,
                     ayahNumber: visibleAyah.numberInSurah,
                     page: visibleAyah.page
-                });
-            }
-            if (currentAyah) {
-                saveLastPlayedLocation({ surahNumber: surahData.number, ayahNumber: currentAyah.numberInSurah });
+                };
+                saveLastReadLocation(location);
+                const juz = getJuzNumber(location.surahNumber, location.ayahNumber);
+                // FIX: Removed `page` property from the object passed to `saveLastReadJuz` to match expected type.
+                saveLastReadJuz({ juz, surahNumber: location.surahNumber, ayahNumber: location.ayahNumber });
             }
         }
     }
-  }, [surahData, currentAyah, findTopmostVisibleAyah]);
+  }, [surahData, findTopmostVisibleAyah]);
 
 
   const handleAyahClick = (e: React.MouseEvent, ayah: Ayah) => {
@@ -235,7 +248,6 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   const handlePlayPause = () => {
     if (currentAyah) {
         setIsPlaying(!isPlaying);
-        saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: currentAyah.numberInSurah });
     }
   };
 
@@ -247,7 +259,6 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
         const nextAyah = surahData.ayahs[currentIndex + 1];
         setCurrentAyah(nextAyah);
         setIsPlaying(true);
-        saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: nextAyah.numberInSurah });
       } else {
         setIsPlaying(false);
       }
@@ -262,7 +273,6 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
         const prevAyah = surahData.ayahs[currentIndex - 1];
         setCurrentAyah(prevAyah);
         setIsPlaying(true);
-        saveLastPlayedLocation({ surahNumber: surahNumber, ayahNumber: prevAyah.numberInSurah });
       }
     }
   };

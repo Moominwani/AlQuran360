@@ -14,6 +14,8 @@ const LAST_READ_LOCATION_KEY = 'quran_last_read_location';
 const LAST_PLAYED_LOCATION_KEY = 'quran_last_played_location';
 const FAVORITE_SURAHS_KEY = 'quran_favorite_surahs';
 const FAVORITE_AYAHS_KEY = 'quran_favorite_ayahs';
+const LAST_READ_JUZ_KEY = 'quran_last_read_juz';
+const LAST_PLAYED_JUZ_KEY = 'quran_last_played_juz';
 
 
 interface QuranData {
@@ -211,6 +213,12 @@ export const saveLastReadLocation = (location: { surahNumber: number; ayahNumber
 export const getLastReadLocation = () => getSetting<{ surahNumber: number; ayahNumber: number; page: number; }>(LAST_READ_LOCATION_KEY);
 export const saveLastPlayedLocation = (location: { surahNumber: number; ayahNumber: number; }) => saveSetting(LAST_PLAYED_LOCATION_KEY, location);
 export const getLastPlayedLocation = () => getSetting<{ surahNumber: number; ayahNumber: number; }>(LAST_PLAYED_LOCATION_KEY);
+
+export const saveLastReadJuz = (location: { juz: number; surahNumber: number; ayahNumber: number; }) => saveSetting(LAST_READ_JUZ_KEY, location);
+export const getLastReadJuz = () => getSetting<{ juz: number; surahNumber: number; ayahNumber: number; }>(LAST_READ_JUZ_KEY);
+export const saveLastPlayedJuz = (location: { juz: number; surahNumber: number; ayahNumber: number; }) => saveSetting(LAST_PLAYED_JUZ_KEY, location);
+export const getLastPlayedJuz = () => getSetting<{ juz: number; surahNumber: number; ayahNumber: number; }>(LAST_PLAYED_JUZ_KEY);
+
 
 export const getFavoriteSurahs = async (): Promise<number[]> => {
     const favorites = await getSetting<number[]>(FAVORITE_SURAHS_KEY);

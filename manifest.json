@@ -1,0 +1,21 @@
+{
+  "name": "AlQuran360",
+  "short_name": "AlQuran360",
+  "description": "An Islamic application featuring accurate prayer times based on your location, a complete Quran explorer, a Hadith library, and a Tasbeeh counter to help with your daily dhikr.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#10B981",
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
