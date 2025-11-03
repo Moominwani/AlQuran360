@@ -102,26 +102,24 @@ self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
 
   const isApiUrl = API_ORIGINS.some(origin => requestUrl.origin === origin);
-  
-  // Strategy: Stale-While-Revalidate for APIs
+
+  // Strategy: Network falling back to Cache for APIs
   if (isApiUrl) {
     event.respondWith(
-      caches.open(API_CACHE_NAME).then(async (cache) => {
-        const cachedResponse = await cache.match(event.request);
-        
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
-          if (networkResponse.ok) {
-            cache.put(event.request, networkResponse.clone());
-          }
-          return networkResponse;
-        }).catch(() => {
-            // This catch is for when fetch itself fails (e.g. offline)
-            // if we have a cached response, we've already returned it.
-        });
-
-        // Return cached response immediately if available, otherwise wait for fetch.
-        return cachedResponse || fetchPromise;
-      })
+      fetch(event.request)
+        .then((networkResponse) => {
+          // If the fetch is successful, cache the response and return it
+          return caches.open(API_CACHE_NAME).then((cache) => {
+            if (networkResponse.ok) {
+              cache.put(event.request, networkResponse.clone());
+            }
+            return networkResponse;
+          });
+        })
+        .catch(() => {
+          // If the network fails (offline), try to get the response from the cache.
+          return caches.match(event.request);
+        })
     );
     return;
   }
