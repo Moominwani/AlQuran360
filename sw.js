@@ -1,96 +1,94 @@
-const STATIC_CACHE = 'alquran360-static-v5';
-const DYNAMIC_CACHE = 'alquran360-dynamic-v5';
-const FONT_CACHE = 'alquran360-fonts-v5';
+// A new, more robust version to guarantee offline functionality.
+const CACHE_VERSION = 'v6';
+const STATIC_CACHE = `alquran360-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `alquran360-dynamic-${CACHE_VERSION}`;
+const ALL_CACHES = [STATIC_CACHE, DYNAMIC_CACHE];
 
-// A complete list of assets required for the app shell to function offline.
-const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/manifest.json',
-    '/index.tsx', 
-    '/icon-192x192.png',
-    '/icon-512x512.png',
-    // Dependencies from index.html
-    'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
-    // Dependencies from importmap
-    'https://aistudiocdn.com/react@^19.2.0',
-    'https://aistudiocdn.com/react@^19.2.0/jsx-runtime',
-    'https://aistudiocdn.com/react-dom@^19.2.0/client',
-    'https://aistudiocdn.com/@google/genai@^1.27.0',
+// Pre-cache only the essential, same-origin app shell files.
+// This is more reliable than trying to pre-cache third-party assets.
+const APP_SHELL_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/index.tsx',
+  '/icon-192x192.png',
+  '/icon-512x512.png'
 ];
 
-const API_ORIGINS = [
-    'https://api.aladhan.com',
-    'https://api.alquran.cloud',
-    'https://geocoding-api.open-meteo.com',
-    'https://hadithapi.com',
-    'https://nominatim.openstreetmap.org'
-];
-
-// On install, precache all critical static resources
+// On install, pre-cache the app shell.
 self.addEventListener('install', event => {
-  console.log('Service Worker: Installing (v5)...');
+  console.log('[SW] Install');
   event.waitUntil(
-    caches.open(STATIC_CACHE).then(cache => {
-      console.log('Service Worker: Caching app shell...');
-      return cache.addAll(STATIC_ASSETS);
-    }).catch(error => {
-      console.error('Failed to cache static assets during install:', error);
-    })
+    caches.open(STATIC_CACHE)
+      .then(cache => {
+        console.log('[SW] Pre-caching App Shell');
+        // Use individual add requests to see if a specific asset fails
+        return Promise.all(
+            APP_SHELL_ASSETS.map(asset => {
+                return cache.add(asset).catch(reason => {
+                    console.error(`[SW] Failed to cache ${asset}:`, reason);
+                });
+            })
+        );
+      })
   );
   self.skipWaiting();
 });
 
-// On activate, clean up old caches and take control
+// On activate, clean up old caches.
 self.addEventListener('activate', event => {
-  console.log('Service Worker: Activating (v5)...');
+  console.log('[SW] Activate');
   event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(keys
-        .filter(key => key !== STATIC_CACHE && key !== DYNAMIC_CACHE && key !== FONT_CACHE)
-        .map(key => {
-            console.log('Service Worker: Deleting old cache:', key);
-            return caches.delete(key);
-        })
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.filter(cacheName => !ALL_CACHES.includes(cacheName))
+          .map(cacheName => {
+            console.log('[SW] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          })
       );
     }).then(() => self.clients.claim())
   );
 });
 
+// On fetch, apply appropriate caching strategies.
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
+  const { request } = event;
+  const url = new URL(request.url);
 
-  // Strategy 1: Fonts (Stale-While-Revalidate)
-  if (url.origin === 'https://fonts.gstatic.com' || url.origin === 'https://fonts.googleapis.com') {
-    event.respondWith(
-      caches.open(FONT_CACHE).then(cache => {
-        return cache.match(event.request).then(cachedResponse => {
-          const fetchPromise = fetch(event.request).then(networkResponse => {
-            cache.put(event.request, networkResponse.clone());
-            return networkResponse;
-          });
-          return cachedResponse || fetchPromise;
-        });
-      })
-    );
+  // Ignore non-GET requests
+  if (request.method !== 'GET') {
     return;
   }
   
-  // Strategy 2: API Calls (Network first, falling back to cache)
-  if (API_ORIGINS.some(origin => url.origin === origin)) {
+  // Strategy for same-origin app shell files: Cache First.
+  // This ensures the core app loads instantly offline.
+  if (url.origin === self.location.origin && APP_SHELL_ASSETS.includes(url.pathname)) {
+    event.respondWith(caches.match(request));
+    return;
+  }
+  
+  // Strategy for APIs: Network first, falling back to cache.
+  const isApiCall = [
+    'api.aladhan.com',
+    'api.alquran.cloud',
+    'geocoding-api.open-meteo.com',
+    'hadithapi.com',
+    'nominatim.openstreetmap.org'
+  ].includes(url.hostname);
+
+  if (isApiCall) {
     event.respondWith(
       caches.open(DYNAMIC_CACHE).then(cache => {
-        return fetch(event.request).then(networkResponse => {
+        return fetch(request).then(networkResponse => {
           if (networkResponse.ok) {
-            cache.put(event.request, networkResponse.clone());
+            cache.put(request, networkResponse.clone());
           }
           return networkResponse;
         }).catch(() => {
-          return cache.match(event.request).then(cachedResponse => {
-            // If we have a cached API response, serve it. Otherwise, fail gracefully.
-            return cachedResponse || new Response(JSON.stringify({ error: "Offline: Could not fetch data." }), { 
-                status: 503, 
-                headers: { 'Content-Type': 'application/json' }
+          return cache.match(request).then(cachedResponse => {
+            return cachedResponse || new Response(JSON.stringify({ error: "You are offline." }), {
+              status: 503, headers: { 'Content-Type': 'application/json' }
             });
           });
         });
@@ -99,33 +97,25 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Strategy 3: App Shell & everything else (Cache First)
-  // This is the most robust strategy for the app itself.
+  // Strategy for everything else (CDNs for React, Tailwind, Fonts): Stale-While-Revalidate.
+  // This is the key fix: it caches the exact CDN URLs as they are requested.
   event.respondWith(
-    caches.match(event.request).then(cacheRes => {
-      // If the request is in our static cache, serve it immediately.
-      // This guarantees the app loads offline.
-      if (cacheRes) {
-        return cacheRes;
-      }
-      
-      // If it's not in our static cache, try fetching from the network.
-      // And cache it for future offline use.
-      return fetch(event.request).then(fetchRes => {
-        return caches.open(DYNAMIC_CACHE).then(cache => {
-          // We only cache successful GET requests.
-          if (event.request.method === 'GET' && fetchRes.ok) {
-              cache.put(event.request.url, fetchRes.clone());
+    caches.open(DYNAMIC_CACHE).then(cache => {
+      return cache.match(request).then(cachedResponse => {
+        const fetchPromise = fetch(request).then(networkResponse => {
+          if (networkResponse.ok) {
+            cache.put(request, networkResponse.clone());
           }
-          return fetchRes;
+          return networkResponse;
+        }).catch(err => {
+            // If network fails, and we don't have it in cache, we can't do anything for this asset.
+            // The browser will show a resource load error, but the app shell itself will have loaded.
+            console.warn('[SW] Network request failed for:', request.url, err);
         });
-      }).catch(() => {
-        // If the network request fails (e.g., user is offline and asset wasn't precached):
-        // For page navigations, serve the main app shell as a fallback.
-        // This prevents the browser's default "You are offline" page.
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
+
+        // Return from cache immediately if available, otherwise wait for network.
+        // This makes the app fast and offline-capable after the first visit.
+        return cachedResponse || fetchPromise;
       });
     })
   );
