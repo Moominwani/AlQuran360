@@ -1,30 +1,61 @@
-// This version implements a robust offline-first strategy.
-const CACHE_VERSION = 'v7';
-const STATIC_CACHE = `alquran30-static-${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `alquran30-dynamic-${CACHE_VERSION}`;
+// This version implements a robust offline-first strategy by pre-caching all critical assets.
+const CACHE_VERSION = 'v8';
+const STATIC_CACHE = `alquran360-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `alquran360-dynamic-${CACHE_VERSION}`;
 const ALL_CACHES = [STATIC_CACHE, DYNAMIC_CACHE];
 
-// Pre-cache the essential app shell. Using relative paths is more reliable.
+// Pre-cache the essential app shell AND all its critical dependencies.
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
+  './index.tsx',
   './manifest.json',
   './icon-192x192.png',
-  './icon-512x512.png'
+  './icon-512x512.png',
+  'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
+  'https://aistudiocdn.com/react@^19.2.0',
+  'https://aistudiocdn.com/react-dom@^19.2.0/client',
+  'https://aistudiocdn.com/@google/genai@^1.27.0'
 ];
 
-// On install, pre-cache the app shell.
+// Helper to correctly cache Google Fonts and the font files they link to.
+const cacheGoogleFonts = (cache) => {
+  const fontCssUrl = 'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap';
+  
+  // 1. Fetch the CSS file
+  return fetch(fontCssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }})
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to fetch font CSS');
+      // 2. Clone the response to cache the CSS file itself
+      cache.put(fontCssUrl, response.clone());
+      // 3. Extract font URLs from the CSS text
+      return response.text();
+    })
+    .then(cssText => {
+      const fontUrls = cssText.match(/url\((https:\/\/[^)]+)\)/g) || [];
+      const urlsToCache = fontUrls.map(urlString => urlString.replace(/url\(['"]?/, '').replace(/['"]?\)/, ''));
+      // 4. Cache all the actual font files (.woff2)
+      if (urlsToCache.length > 0) {
+        return cache.addAll(urlsToCache);
+      }
+    }).catch(err => {
+        console.error("[SW] Could not cache Google Fonts. App may not have custom fonts offline.", err);
+    });
+};
+
+// On install, pre-cache everything needed for a true offline-first launch.
 self.addEventListener('install', event => {
-  console.log('[SW] Install');
+  console.log(`[SW] Install (${CACHE_VERSION})`);
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(cache => {
-        console.log('[SW] Pre-caching App Shell');
-        // Use addAll for atomic caching. It will fail if any asset is not found.
-        return cache.addAll(APP_SHELL_ASSETS);
+        console.log('[SW] Pre-caching core assets and fonts.');
+        const coreAssetsPromise = cache.addAll(APP_SHELL_ASSETS);
+        const fontsPromise = cacheGoogleFonts(cache);
+        return Promise.all([coreAssetsPromise, fontsPromise]);
       })
       .catch(error => {
-        console.error('[SW] App Shell pre-caching failed:', error);
+        console.error('[SW] Caching failed during install:', error);
       })
   );
   self.skipWaiting();
@@ -32,7 +63,7 @@ self.addEventListener('install', event => {
 
 // On activate, clean up old caches.
 self.addEventListener('activate', event => {
-  console.log('[SW] Activate');
+  console.log(`[SW] Activate (${CACHE_VERSION})`);
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
@@ -51,26 +82,20 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Ignore non-GET requests
-  if (request.method !== 'GET') {
-    return;
-  }
+  if (request.method !== 'GET') return;
   
-  // Strategy 1: For navigation requests (the HTML page), use Network Falling Back to Cache.
-  // This is the key fix for the "start offline" issue.
+  // Strategy 1: Network Falling Back to Cache for navigation requests.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(() => {
-        // If the network is unavailable, serve the main app shell from the cache.
-        // We cached './' during install, so this should always be available.
-        return caches.match('./');
+        console.log('[SW] Network failed for navigation. Serving app shell from cache.');
+        return caches.match('./index.html');
       })
     );
     return;
   }
 
-  // Strategy 2: For API calls, use Network first, falling back to cache.
-  // This ensures data is as fresh as possible.
+  // Strategy 2: Network first, falling back to cache for API calls.
   const isApiCall = [
     'api.aladhan.com',
     'api.alquran.cloud',
@@ -87,25 +112,18 @@ self.addEventListener('fetch', event => {
             cache.put(request, networkResponse.clone());
           }
           return networkResponse;
-        }).catch(() => {
-          // If network fails, try to serve from cache.
-          return cache.match(request);
-        });
+        }).catch(() => cache.match(request));
       })
     );
     return;
   }
 
-  // Strategy 3: For other requests (CDN scripts, fonts, etc.), use Cache First, then Network.
-  // This is fast and efficient for static assets that don't change often.
+  // Strategy 3: Cache First for all other assets (pre-cached or dynamically cached).
   event.respondWith(
     caches.match(request).then(cachedResponse => {
-      // Return from cache if found
       if (cachedResponse) {
         return cachedResponse;
       }
-
-      // Otherwise, fetch from network and cache it
       return fetch(request).then(networkResponse => {
         return caches.open(DYNAMIC_CACHE).then(cache => {
           if (networkResponse.ok) {
