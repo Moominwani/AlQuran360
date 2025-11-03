@@ -8,8 +8,13 @@ const APP_SHELL_URLS = [
   '/icon-192x192.png',
   '/icon-512x512.png',
   '/index.tsx', // This represents the main app logic file
+  // Core Dependencies
   'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
-  'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap',
+  // JS Modules from importmap to ensure offline functionality
+  'https://aistudiocdn.com/react@^19.2.0',
+  'https://aistudiocdn.com/react-dom@^19.2.0/client.js',
+  'https://aistudiocdn.com/@google/genai@^1.27.0'
 ];
 
 const API_ORIGINS = [
