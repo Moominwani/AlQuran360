@@ -59,13 +59,13 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
       console.log('Service Worker: Caching App Shell');
-      return Promise.all(
-          APP_SHELL_ASSETS.map(url => {
-              return cache.add(url).catch(reason => {
-                  console.log(`[SW] Caching failed for: ${url}`, reason);
-              });
-          })
-      );
+      // Use addAll for atomic caching. If one file fails, the whole process fails,
+      // preventing a partially cached and broken state.
+      return cache.addAll(APP_SHELL_ASSETS).catch(error => {
+        console.error('Service Worker: Failed to cache app shell.', error);
+        // Propagate the error to fail the service worker installation
+        throw error;
+      });
     })
   );
 });
