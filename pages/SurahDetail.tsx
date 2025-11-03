@@ -97,7 +97,11 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
             setFavoriteAyahs(favAyahs);
 
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An unknown error occurred');
+            if (!navigator.onLine) {
+                setError("You are offline. Quran data has not been downloaded for offline use.");
+            } else {
+                setError(err instanceof Error ? err.message : 'An unknown error occurred');
+            }
         } finally {
             setLoading(false);
         }
@@ -332,7 +336,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
   };
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p>Loading Surah...</p></div>;
-  if (error) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p className="text-red-400">Error: {error}</p></div>;
+  if (error) return <div className="flex items-center justify-center h-screen bg-primary text-primary"><p className="text-red-400 p-4 text-center">{error}</p></div>;
   if (!surahData) return null;
 
   const hasAudio = !!(surahData?.ayahs?.[0]?.audio);

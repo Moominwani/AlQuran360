@@ -173,7 +173,11 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                 const data = await response.json();
                 setSearchResults(data.results || []);
             } catch (err) {
-                setSearchError(err instanceof Error ? err.message : 'An error occurred.');
+                if (!navigator.onLine) {
+                    setSearchError("You are offline. Please connect to search for a city.");
+                } else {
+                    setSearchError(err instanceof Error ? err.message : 'An error occurred.');
+                }
             } finally {
                 setSearchLoading(false);
             }
@@ -200,7 +204,11 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                         setError(data.status);
                     }
                 } catch (err) {
-                    setError(err instanceof Error ? err.message : 'An an error occurred.');
+                    if (!navigator.onLine) {
+                        setError("You're offline. Prayer times for this date are not available in the cache.");
+                    } else {
+                        setError(err instanceof Error ? err.message : 'An an error occurred.');
+                    }
                 } finally {
                     setLoading(false);
                 }

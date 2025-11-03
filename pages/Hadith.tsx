@@ -238,7 +238,11 @@ const useFetchData = <T,>(url: string) => {
                 setData(result);
             } catch (err) {
                 console.error("Fetch error:", err);
-                setError(err instanceof Error ? err.message : 'An unknown error occurred. Please check your network connection.');
+                if (!navigator.onLine) {
+                    setError("You are offline. This content is not available in the cache.");
+                } else {
+                    setError(err instanceof Error ? err.message : 'An unknown error occurred. Please check your network connection.');
+                }
             } finally {
                 setLoading(false);
             }

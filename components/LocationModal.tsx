@@ -37,7 +37,11 @@ const LocationModal: React.FC<LocationModalProps> = ({ onClose, onLocationSet })
                     setResults([]);
                 }
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'An error occurred.');
+                if (!navigator.onLine) {
+                    setError("You are offline. Please connect to the internet to search for a city.");
+                } else {
+                    setError(err instanceof Error ? err.message : 'An error occurred.');
+                }
             } finally {
                 setLoading(false);
             }

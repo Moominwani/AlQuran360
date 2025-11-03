@@ -87,7 +87,7 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  const apiHosts = ['api.aladhan.com', 'geocoding-api.open-meteo.com', 'hadithapi.com', 'nominatim.openstreetmap.org'];
+  const apiHosts = ['api.aladhan.com', 'geocoding-api.open-meteo.com', 'hadithapi.com', 'nominatim.openstreetmap.org', 'api.alquran.cloud'];
 
   if (apiHosts.some(host => url.hostname.includes(host))) {
      event.respondWith(
