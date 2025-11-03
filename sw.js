@@ -1,6 +1,7 @@
 const CACHE_NAME = 'alquran360-cache-v1';
 const API_CACHE_NAME = 'alquran360-api-cache-v1';
 
+// Only precache the local app shell. External assets will be cached on first use by the fetch handler.
 const APP_SHELL_URLS = [
     '/',
     '/index.html',
@@ -58,14 +59,7 @@ const APP_SHELL_URLS = [
     '/utils/surahNames.ts',
     '/utils/juzMetadata.ts',
     '/utils/commandParser.ts',
-    '/utils/tts.ts',
-    // Core Dependencies from CDN
-    'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
-    'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap',
-    // JS Modules from importmap to ensure offline functionality
-    'https://aistudiocdn.com/react@^19.2.0',
-    'https://aistudiocdn.com/react-dom@^19.2.0/client.js',
-    'https://aistudiocdn.com/@google/genai@^1.27.0'
+    '/utils/tts.ts'
 ];
 
 const API_ORIGINS = [
@@ -81,6 +75,9 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       console.log('Opened cache and caching app shell');
       return cache.addAll(APP_SHELL_URLS);
+    }).catch(error => {
+      console.error('Failed to cache app shell during install:', error);
+      throw error;
     })
   );
 });
@@ -129,7 +126,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy: Cache First, then Network for App Shell & other assets
+  // Strategy: Cache First, then Network for App Shell & other assets (including external CDNs)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -139,7 +136,7 @@ self.addEventListener('fetch', (event) => {
       return fetch(event.request).then((networkResponse) => {
         // For non-API requests, cache them in the main app cache
         return caches.open(CACHE_NAME).then((cache) => {
-          // Cache opaque responses (for CDNs) and regular responses
+          // Cache opaque responses (for CDNs without CORS) and regular responses
           if (networkResponse.status === 200 || networkResponse.type === 'opaque') {
              cache.put(event.request, networkResponse.clone());
           }
