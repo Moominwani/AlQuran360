@@ -1,4 +1,3 @@
-
 // Bump versions to ensure the new service worker activates and caches are updated.
 const STATIC_CACHE_NAME = 'alquran360-static-v4';
 const API_CACHE_NAME = 'alquran360-api-v4';
