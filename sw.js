@@ -4,6 +4,9 @@ const API_CACHE_NAME = 'alquran360-api-cache-v1';
 const APP_SHELL_URLS = [
   '/',
   '/index.html',
+  '/manifest.json',
+  '/icon-192x192.png',
+  '/icon-512x512.png',
   '/index.tsx', // This represents the main app logic file
   'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
   'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap'
