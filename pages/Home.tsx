@@ -41,11 +41,14 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     };
 
     useEffect(() => {
+        // This component only renders after a location is set by LocationManager,
+        // so we can safely assume it exists in localStorage.
         const savedLocation = localStorage.getItem('userLocation');
         if (savedLocation) {
             setLocation(JSON.parse(savedLocation));
         } else {
-            setError("Location not set.");
+            // This is a fallback case, shouldn't normally be reached.
+            setError("Location not found. Please restart the app.");
             setLoading(false);
         }
     }, []);

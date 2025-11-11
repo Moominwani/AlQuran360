@@ -28,7 +28,7 @@ const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.Home);
   const [pageProps, setPageProps] = useState<any>({});
   const [viewingSurah, setViewingSurah] = useState<{ number: number; startPlayback: boolean; ayahNumber?: number; } | null>(null);
-  const [locationReady, setLocationReady] = useState<boolean>(true);
+  const [locationReady, setLocationReady] = useState<boolean>(!!localStorage.getItem('userLocation'));
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [isAiScholarOpen, setIsAiScholarOpen] = useState(false);
 
