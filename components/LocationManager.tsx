@@ -6,138 +6,136 @@ interface LocationManagerProps {
 }
 
 const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
+    const [statusMessage, setStatusMessage] = useState('Checking location permissions...');
+    const [error, setError] = useState<string | null>(null);
     const [showManualModal, setShowManualModal] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
-    const [permissionState, setPermissionState] = useState<'loading' | 'prompt' | 'granted' | 'denied'>('loading');
-    const [error, setError] = useState<string | null>(null);
-
-    const handleAllow = () => {
-        setIsLocating(true);
-        setError(null);
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await response.json();
-                    const city = data.address.city || data.address.town || data.address.village || 'Current Location';
-                    localStorage.setItem('userLocation', JSON.stringify({ city, latitude, longitude }));
-                    onLocationSet();
-                } catch (e) {
-                    localStorage.setItem('userLocation', JSON.stringify({ city: 'Current Location', latitude, longitude }));
-                    onLocationSet();
-                } finally {
-                    setIsLocating(false);
-                }
-            },
-            (err) => { 
-                setIsLocating(false);
-                if (err.code === err.PERMISSION_DENIED) {
-                    setError("Location access was denied. Please set your city manually or enable permissions in your device/browser settings.");
-                    setPermissionState('denied');
-                } else if (err.code === err.TIMEOUT) {
-                    setError("Could not determine your location in time. Please try again or set it manually.");
-                } else {
-                    setError("An error occurred while fetching your location. Please set it manually.");
-                }
-            },
-            { timeout: 15000, enableHighAccuracy: true }
-        );
-    };
-
-    const handleDeny = () => {
-        setShowManualModal(true);
-    };
 
     const handleManualLocationSet = (location: { city: string, latitude: number, longitude: number }) => {
         localStorage.setItem('userLocation', JSON.stringify(location));
         onLocationSet();
         setShowManualModal(false);
     };
-    
-    useEffect(() => {
+
+    const fetchAndSetLocation = () => {
         if (!navigator.geolocation) {
-            setError("Geolocation is not supported by your device or browser.");
+            setError("Geolocation is not supported by your device.");
             setShowManualModal(true);
             return;
         }
 
-        if (navigator.permissions && navigator.permissions.query) {
-            navigator.permissions.query({ name: 'geolocation' }).then(status => {
-                setPermissionState(status.state);
-                if (status.state === 'granted') {
-                    handleAllow();
-                }
-                status.onchange = () => {
-                    setPermissionState(status.state);
-                    if(status.state === 'granted') {
-                        handleAllow();
-                    }
-                };
+        setIsLocating(true);
+        setStatusMessage('Getting your location...');
+        setError(null);
+
+        const locationPromise = new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                timeout: 15000, // 15s timeout
+                enableHighAccuracy: true,
             });
-        } else {
-            setPermissionState('prompt');
-        }
+        });
+
+        locationPromise
+            .then(async (position) => {
+                const { latitude, longitude } = position.coords;
+                setStatusMessage('Finding your city...');
+                try {
+                    // Using a reliable reverse geocoder
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    if (!response.ok) throw new Error('Failed to fetch city name.');
+                    const data = await response.json();
+                    const city = data.address.city || data.address.town || data.address.village || data.address.county || 'Current Location';
+                    localStorage.setItem('userLocation', JSON.stringify({ city, latitude, longitude }));
+                    onLocationSet();
+                } catch (reverseGeocodeError) {
+                    console.error("Reverse geocoding failed:", reverseGeocodeError);
+                    // Fallback if reverse geocoding fails
+                    localStorage.setItem('userLocation', JSON.stringify({ city: 'Current Location', latitude, longitude }));
+                    onLocationSet();
+                } finally {
+                    setIsLocating(false);
+                }
+            })
+            .catch((err) => {
+                setIsLocating(false);
+                let errorMessage = "An error occurred. Please set your location manually.";
+                switch (err.code) {
+                    case err.PERMISSION_DENIED:
+                        errorMessage = "Location access was denied. You can set your city manually or enable permissions and reload the app.";
+                        break;
+                    case err.POSITION_UNAVAILABLE:
+                        errorMessage = "Location is unavailable. Check your GPS and network, then try again or set it manually.";
+                        break;
+                    case err.TIMEOUT:
+                        errorMessage = "Could not get your location in time. Please try again or set it manually.";
+                        break;
+                }
+                setError(errorMessage);
+            });
+    };
+    
+    useEffect(() => {
+        const checkPermissionsAndLocate = async () => {
+            // Check for permissions API support
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const status = await navigator.permissions.query({ name: 'geolocation' });
+                    if (status.state === 'granted') {
+                        fetchAndSetLocation();
+                    }
+                    // Listen for changes, e.g., if user enables permission in settings
+                    status.onchange = () => {
+                       if (status.state === 'granted') {
+                           fetchAndSetLocation();
+                       }
+                    };
+                } catch (e) {
+                    console.warn("Could not query permissions, will wait for user action.", e);
+                }
+            }
+        };
+        checkPermissionsAndLocate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+
     if (showManualModal) {
-        return <LocationModal onLocationSet={handleManualLocationSet} onClose={() => { /* Cannot close until location is set */ }} />;
+        return <LocationModal onLocationSet={handleManualLocationSet} onClose={() => { /* Cannot close */ }} />;
     }
 
-    if (permissionState === 'loading' || isLocating) {
-        return (
-            <div className="bg-[#143d31] min-h-screen flex flex-col items-center justify-center p-8 text-white text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
-                <h2 className="text-2xl font-semibold">Getting Location</h2>
-                <p className="text-gray-300">Please wait a moment...</p>
-                 {error && <p className="text-red-400 bg-red-500/20 p-3 rounded-lg mt-4 text-sm">{error}</p>}
-            </div>
-        );
-    }
-
-    if (permissionState === 'denied') {
-        return (
-            <div className="bg-[#143d31] min-h-screen flex flex-col items-center justify-center p-8 text-white text-center">
-                <h1 className="text-4xl font-bold mb-4">Location Access Denied</h1>
-                <p className="text-lg text-gray-300 mb-8">Set your city manually, or enable location access in your device/browser settings and reload the app.</p>
-                {error && <p className="text-red-400 bg-red-500/20 p-3 rounded-lg mb-4 text-sm">{error}</p>}
-                <div className="w-full max-w-xs space-y-4">
-                    <button 
-                        onClick={handleDeny}
-                        className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                    >
-                        Set Manually
-                    </button>
-                </div>
-                <p className="text-xs text-gray-400 mt-8">Your location data is used only to calculate prayer times and is not stored or shared.</p>
+    if (isLocating) {
+         return (
+            <div className="bg-primary min-h-screen flex flex-col items-center justify-center p-8 text-primary text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+                <h2 className="text-2xl font-semibold">{statusMessage}</h2>
+                <p className="text-secondary">Please wait a moment...</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-[#143d31] min-h-screen flex flex-col items-center justify-center p-8 text-white text-center">
+        <div className="bg-primary min-h-screen flex flex-col items-center justify-center p-8 text-primary text-center">
             <h1 className="text-4xl font-bold mb-4">Location Required</h1>
-            <p className="text-lg text-gray-300 mb-8">To calculate accurate prayer times, AlQuran360 needs to access your location. You can also set it manually.</p>
+            <p className="text-lg text-secondary mb-8">To calculate accurate prayer times, AlQuran360 needs to access your location. You can also set it manually.</p>
             
-             {error && <p className="text-red-400 bg-red-500/20 p-3 rounded-lg mb-4 text-sm">{error}</p>}
+            {error && <p className="text-red-400 bg-red-500/20 p-3 rounded-lg mb-4 text-sm max-w-sm">{error}</p>}
 
             <div className="w-full max-w-xs space-y-4">
                 <button 
-                    onClick={handleAllow}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                    onClick={fetchAndSetLocation}
+                    className="w-full accent-bg text-inverted font-bold py-3 px-4 rounded-lg transition-colors"
                 >
                     Allow Location Access
                 </button>
                 <button 
-                    onClick={handleDeny}
-                    className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                    onClick={() => setShowManualModal(true)}
+                    className="w-full bg-tertiary hover:bg-tertiary/80 text-primary font-bold py-3 px-4 rounded-lg transition-colors"
                 >
                     Set Manually
                 </button>
             </div>
             
-            <p className="text-xs text-gray-400 mt-8">Your location data is used only to calculate prayer times and is not stored or shared.</p>
+            <p className="text-xs text-secondary mt-8">Your location data is used only to calculate prayer times and is not stored or shared.</p>
         </div>
     );
 };

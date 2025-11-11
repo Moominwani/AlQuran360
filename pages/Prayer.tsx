@@ -91,70 +91,54 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
         setSearchResults([]);
     };
 
-    const handleUseCurrentLocation = async () => {
+    const handleUseCurrentLocation = () => {
         if (!navigator.geolocation) {
             setSearchError("Geolocation is not supported by your browser.");
             return;
         }
     
-        const handleSuccess = async (position: GeolocationPosition) => {
-            const { latitude, longitude } = position.coords;
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                const data = await response.json();
-                const city = data.address.city || data.address.town || data.address.village || 'Current Location';
-                handleLocationUpdate({ city, latitude, longitude });
-            } catch (e) {
-                 handleLocationUpdate({ city: 'Current Location', latitude, longitude });
-            } finally {
-                setIsAutoLocating(false);
-                setIsSearchFocused(false);
-                setSearchQuery('');
-            }
-        };
+        setIsAutoLocating(true);
+        setSearchError(null);
     
-        const handleError = (err: GeolocationPositionError) => {
-            let message: string;
-            switch(err.code) {
-                case err.PERMISSION_DENIED:
-                    setShowPermissionDeniedModal(true);
-                    message = "Location permission denied.";
-                    break;
-                case err.POSITION_UNAVAILABLE:
-                    message = "Location information is unavailable. Please check your device settings.";
-                    break;
-                case err.TIMEOUT:
-                    message = "Could not get location in time. Please check your device's GPS signal and try again.";
-                    break;
-                default:
-                    message = `An unknown location error occurred. (Code: ${err.code})`;
-                    break;
-            }
-            setSearchError(message);
-            setIsAutoLocating(false);
-        };
-    
-        try {
-            const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-            if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt') {
-                setIsAutoLocating(true);
-                setSearchError(null);
-                navigator.geolocation.getCurrentPosition(handleSuccess, handleError, { timeout: 15000, enableHighAccuracy: true });
-            } else if (permissionStatus.state === 'denied') {
-                setShowPermissionDeniedModal(true);
-            }
-            permissionStatus.onchange = () => {
-                if (permissionStatus.state === 'granted') {
-                     setIsAutoLocating(true);
-                     setSearchError(null);
-                     navigator.geolocation.getCurrentPosition(handleSuccess, handleError, { timeout: 15000, enableHighAccuracy: true });
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    if (!response.ok) throw new Error('Reverse geocoding failed');
+                    const data = await response.json();
+                    const city = data.address.city || data.address.town || data.address.village || 'Current Location';
+                    handleLocationUpdate({ city, latitude, longitude });
+                } catch (e) {
+                     handleLocationUpdate({ city: 'Current Location', latitude, longitude });
+                } finally {
+                    setIsAutoLocating(false);
+                    setIsSearchFocused(false);
+                    setSearchQuery('');
                 }
-            }
-        } catch (error) {
-            setIsAutoLocating(true);
-            setSearchError(null);
-            navigator.geolocation.getCurrentPosition(handleSuccess, handleError, { timeout: 15000, enableHighAccuracy: true });
-        }
+            },
+            (err) => {
+                let message: string;
+                switch(err.code) {
+                    case err.PERMISSION_DENIED:
+                        message = "Location permission denied. Please enable it in your device settings.";
+                        setShowPermissionDeniedModal(true);
+                        break;
+                    case err.POSITION_UNAVAILABLE:
+                        message = "Location information is unavailable. Check GPS.";
+                        break;
+                    case err.TIMEOUT:
+                        message = "Getting location timed out. Please try again.";
+                        break;
+                    default:
+                        message = `An unknown location error occurred.`;
+                        break;
+                }
+                setSearchError(message);
+                setIsAutoLocating(false);
+            },
+            { timeout: 10000, enableHighAccuracy: true }
+        );
     };
 
 
@@ -311,7 +295,7 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
     
     return (
         <div className="bg-secondary text-primary min-h-full">
-            <div className="p-4 max-w-lg mx-auto">
+            <div className="p-4 max-w-lg mx-auto pb-20">
                  <div className="relative my-4">
                      <div className="relative">
                         <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary z-10" />
