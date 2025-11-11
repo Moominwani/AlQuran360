@@ -213,7 +213,7 @@ const Tasbeeh: React.FC = () => {
                 <div className="relative w-full h-36 rounded-2xl p-4 flex items-center justify-center overflow-hidden" style={{backgroundColor: '#4a4441'}}>
                      <button onClick={() => handleDhikrChange(-1)} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2"><ChevronLeftIcon className="w-6 h-6 text-white/50" /></button>
                      <div key={currentDhikr.id} className={`text-center text-white w-full ${slideDirection === 'right' ? 'animate-slide-in-right' : 'animate-slide-in-left'}`}>
-                        <p className="font-amiri text-2xl">{currentDhikr.ar}</p>
+                        <p className="font-arabic text-2xl">{currentDhikr.ar}</p>
                         <p className="text-sm opacity-70 my-1 tracking-widest">{currentDhikr.text}</p>
                         <p className="text-sm opacity-90">{currentDhikr.translation}</p>
                      </div>

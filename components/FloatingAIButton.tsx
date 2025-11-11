@@ -12,36 +12,7 @@ const FloatingAIButton: React.FC<FloatingAIButtonProps> = ({ onClick, onLongPres
   const longPressTriggered = useRef(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   
-  const [showInstruction, setShowInstruction] = useState(false);
   const [isExpandedFromTuck, setIsExpandedFromTuck] = useState(false);
-
-  // Effect to show the instructional tooltip every 12 hours
-  useEffect(() => {
-    const INSTRUCTION_TIMESTAMP_KEY = 'aiButtonInstructionLastShown';
-    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
-    const lastShown = localStorage.getItem(INSTRUCTION_TIMESTAMP_KEY);
-    const now = Date.now();
-
-    let showTimer: ReturnType<typeof setTimeout>;
-    let hideTimer: ReturnType<typeof setTimeout>;
-
-    if (!lastShown || now - parseInt(lastShown, 10) > TWELVE_HOURS_MS) {
-      localStorage.setItem(INSTRUCTION_TIMESTAMP_KEY, now.toString());
-      
-      showTimer = setTimeout(() => {
-        setShowInstruction(true);
-        // Hide after animation duration to remove from DOM
-        hideTimer = setTimeout(() => {
-          setShowInstruction(false);
-        }, 6000); // Animation is 6s long
-      }, 1500); // Show after 1.5s delay
-    }
-
-    return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
-    };
-  }, []);
 
   // Reset expanded state if the button is no longer meant to be tucked
   useEffect(() => {
@@ -126,23 +97,6 @@ const FloatingAIButton: React.FC<FloatingAIButtonProps> = ({ onClick, onLongPres
       className={`${baseClasses} ${dynamicClasses}`}
       aria-label="AI Assistant"
     >
-        {showInstruction && (
-            <div
-                className={`
-                    absolute whitespace-nowrap bg-tertiary text-sm font-medium
-                    px-3 py-2 rounded-lg shadow-lg pointer-events-none animate-tooltip
-                    right-full mr-3
-                `}
-            >
-                <span className="relative z-10 text-primary">Tap or long press me</span>
-                <div
-                    className={`
-                        absolute w-3 h-3 bg-tertiary transform rotate-45
-                        right-[-6px] top-1/2 -translate-y-1/2
-                    `}
-                ></div>
-            </div>
-        )}
       <AIIcon className={`text-white transition-all ${isTuckedIn ? 'w-7 h-7' : 'w-8 h-8'}`} />
     </button>
   );

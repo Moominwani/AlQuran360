@@ -167,7 +167,7 @@ const Quran: React.FC<QuranProps> = ({ onSurahSelect }) => {
                             <p className="text-xs text-secondary">{surah.revelationType} • {surah.numberOfAyahs} Ayahs</p>
                         </div>
                     </div>
-                    <p className="font-amiri text-2xl text-right text-primary">{surah.name}</p>
+                    <p className="font-arabic text-2xl text-right text-primary">{surah.name}</p>
                 </div>
                 <button onClick={() => toggleFavorite(surah.number)} className="p-2">
                     {isFavorite ? <FilledStarIcon className="w-6 h-6 text-yellow-400"/> : <StarIcon className="w-6 h-6 text-secondary"/>}
@@ -202,7 +202,7 @@ const Quran: React.FC<QuranProps> = ({ onSurahSelect }) => {
                                             <p className="text-xs text-secondary">{surah.revelationType} • {surah.numberOfAyahs} Ayahs</p>
                                         </div>
                                     </div>
-                                    <p className="font-amiri text-2xl text-right text-primary">{surah.name}</p>
+                                    <p className="font-arabic text-2xl text-right text-primary">{surah.name}</p>
                                 </div>
                                 <button onClick={() => toggleFavorite(surah.number)} className="p-2">
                                     <FilledStarIcon className="w-6 h-6 text-yellow-400"/>
@@ -236,7 +236,7 @@ const Quran: React.FC<QuranProps> = ({ onSurahSelect }) => {
                             return (
                                 <div key={ayah.number} onClick={() => { if (surahNum > 0) onSurahSelect(surahNum, false, ayah.numberInSurah); }} className="bg-secondary rounded-xl p-4 cursor-pointer hover:bg-tertiary">
                                     <p className="font-bold text-primary mb-2">{surahOfAyah?.englishName || 'Unknown Surah'} : {ayah.numberInSurah}</p>
-                                    <p className="font-amiri text-xl text-primary text-right">{ayah.text}</p>
+                                    <p className="font-arabic text-xl text-primary text-right">{ayah.text}</p>
                                 </div>
                             )
                         })}

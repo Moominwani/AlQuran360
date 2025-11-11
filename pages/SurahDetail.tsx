@@ -355,14 +355,14 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
       
       <div className="p-4 space-y-6">
         <div className="bg-secondary rounded-xl p-4 text-center">
-            <p className="font-amiri text-3xl mb-2 text-primary">{surahData.name}</p>
+            <p className="font-arabic text-3xl mb-2 text-primary">{surahData.name}</p>
             <p className="text-sm text-secondary uppercase tracking-widest">
                 {surahData.revelationType} • {surahData.numberOfAyahs} VERSES
             </p>
         </div>
         
         {surahData.number !== 1 && surahData.number !== 9 && (
-            <p className="text-center font-amiri text-2xl text-primary">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
+            <p className="text-center font-arabic text-2xl text-primary">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
         )}
 
         {surahData.ayahs.map((ayah) => {
@@ -397,7 +397,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
                 </span>
                 {isFavorited && <FilledStarIcon className="w-5 h-5 text-yellow-400" />}
               </div>
-              <p className={`text-right font-amiri text-3xl leading-loose transition-colors duration-300 ${isCurrent ? 'accent-text' : 'text-primary'}`}>
+              <p className={`text-right font-arabic text-3xl leading-loose transition-colors duration-300 ${isCurrent ? 'accent-text' : 'text-primary'}`}>
                 {ayah.text}
               </p>
             </div>

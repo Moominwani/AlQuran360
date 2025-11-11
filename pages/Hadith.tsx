@@ -192,7 +192,7 @@ const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                         <label className="block text-sm font-medium text-secondary mb-2">English Font</label>
                         <div className="grid grid-cols-2 gap-2">
                             <button onClick={() => setSettings(s => ({ ...s, fontStyle: 'default' }))} className={`py-2 rounded-lg ${settings.fontStyle === 'default' ? 'bg-green-500 text-inverted' : 'bg-tertiary text-primary'}`}>Default</button>
-                            <button onClick={() => setSettings(s => ({ ...s, fontStyle: 'amiri' }))} className={`py-2 rounded-lg font-amiri ${settings.fontStyle === 'amiri' ? 'bg-green-500 text-inverted' : 'bg-tertiary text-primary'}`}>Amiri</button>
+                            <button onClick={() => setSettings(s => ({ ...s, fontStyle: 'amiri' }))} className={`py-2 rounded-lg font-arabic ${settings.fontStyle === 'amiri' ? 'bg-green-500 text-inverted' : 'bg-tertiary text-primary'}`}>Amiri</button>
                         </div>
                     </div>
                     {/* Line Spacing */}
@@ -327,7 +327,7 @@ const ChaptersList: React.FC<{ bookSlug: string; bookName: string; onSelect: (ch
                                 </div>
                                 <p className="font-semibold text-primary truncate">{chapter.chapterEnglish}</p>
                             </div>
-                            <p className="font-amiri text-lg text-right text-secondary pl-4 max-w-[40%] truncate">{chapter.chapterArabic}</p>
+                            <p className="font-arabic text-lg text-right text-secondary pl-4 max-w-[40%] truncate">{chapter.chapterArabic}</p>
                         </button>
                     ))}
                 </div>
@@ -366,13 +366,13 @@ const HadithCard: React.FC<{ hadith: HadithData; isFavorite: boolean; onToggleFa
             </div>
 
             <p 
-                className="text-right font-amiri text-primary mb-4 break-words"
+                className="text-right font-arabic text-primary mb-4 break-words"
                 style={{ fontSize: `${settings.fontSize + 4}px`, lineHeight: settings.lineSpacing }}
             >
                 {hadith.hadithArabic}
             </p>
             <p 
-                className={`text-primary ${settings.fontStyle === 'amiri' ? 'font-amiri' : ''} break-words`}
+                className={`text-primary ${settings.fontStyle === 'amiri' ? 'font-arabic' : ''} break-words`}
                 style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineSpacing }}
             >
                 {hadith.hadithEnglish}

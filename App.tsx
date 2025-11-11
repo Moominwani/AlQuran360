@@ -31,7 +31,6 @@ const App: React.FC = () => {
   const [locationReady, setLocationReady] = useState<boolean>(false);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [isAiScholarOpen, setIsAiScholarOpen] = useState(false);
-  const [showScholarTooltip, setShowScholarTooltip] = useState(false);
   const [quranDownloadStatus, setQuranDownloadStatus] = useState<'idle' | 'downloading' | 'completed' | 'error'>('idle');
 
   useEffect(() => {
@@ -51,8 +50,7 @@ const App: React.FC = () => {
                     const data = await response.json();
                     if (data.code === 200 && data.data) {
                         await saveQuranToDB(data.data);
-                        setQuranDownloadStatus('completed');
-                        setTimeout(() => setQuranDownloadStatus('idle'), 4000); // Hide after 4s
+                        setQuranDownloadStatus('idle');
                     } else {
                         throw new Error(data.status || 'Failed to get Quran data');
                     }
@@ -93,33 +91,6 @@ const App: React.FC = () => {
     };
   }, []);
   
-  useEffect(() => {
-    const SCHOLAR_TOOLTIP_KEY = 'aiScholarTooltipLastShown';
-    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
-    const lastShown = localStorage.getItem(SCHOLAR_TOOLTIP_KEY);
-    const now = Date.now();
-
-    let showTimer: ReturnType<typeof setTimeout>;
-    let hideTimer: ReturnType<typeof setTimeout>;
-
-    if (!lastShown || now - parseInt(lastShown, 10) > TWELVE_HOURS_MS) {
-        localStorage.setItem(SCHOLAR_TOOLTIP_KEY, now.toString());
-        
-        showTimer = setTimeout(() => {
-            setShowScholarTooltip(true);
-            hideTimer = setTimeout(() => {
-                setShowScholarTooltip(false);
-            }, 6000); // Animation is 6s long
-        }, 2500); // Show after 2.5s delay to not overlap with other tooltip
-    }
-
-    return () => {
-        clearTimeout(showTimer);
-        clearTimeout(hideTimer);
-    };
-}, []);
-
-
   const handleSurahSelect = (surahNumber: number, startPlayback: boolean = false, ayahNumber?: number) => {
     const surahState = { number: surahNumber, startPlayback, ayahNumber };
     const newState: HistoryState = { page: Page.Quran, viewingSurah: surahState, pageProps: {} };
@@ -221,16 +192,13 @@ const App: React.FC = () => {
   const isTucked = !!viewingSurah || activePage === Page.Hadith || activePage === Page.Tasbeeh;
 
   const renderQuranDownloadToast = () => {
-    if (quranDownloadStatus === 'idle') return null;
+    if (quranDownloadStatus === 'idle' || quranDownloadStatus === 'completed') return null;
 
     let message = '';
     let bgColor = 'bg-secondary';
     if (quranDownloadStatus === 'downloading') {
       message = 'Downloading Quran for offline access...';
       bgColor = 'bg-blue-500';
-    } else if (quranDownloadStatus === 'completed') {
-      message = 'Quran downloaded successfully!';
-      bgColor = 'bg-green-500';
     } else if (quranDownloadStatus === 'error') {
       message = 'Failed to download Quran for offline use.';
       bgColor = 'bg-red-500';
@@ -268,23 +236,6 @@ const App: React.FC = () => {
           className="fixed z-50 bottom-44 right-4 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center rounded-full hover:scale-105 border-4 border-secondary transform active:scale-95 transition-all duration-300 ease-in-out shadow-lg"
           aria-label="AI Scholar"
         >
-          {showScholarTooltip && (
-            <div
-                className={`
-                    absolute whitespace-nowrap bg-tertiary text-sm font-medium
-                    px-3 py-2 rounded-lg shadow-lg pointer-events-none animate-tooltip
-                    right-full mr-3
-                `}
-            >
-                <span className="relative z-10 text-primary">Explore with AI Scholar</span>
-                <div
-                    className={`
-                        absolute w-3 h-3 bg-tertiary transform rotate-45
-                        right-[-6px] top-1/2 -translate-y-1/2
-                    `}
-                ></div>
-            </div>
-          )}
           <CrownIcon className="w-8 h-8 text-white" />
         </button>
       )}
