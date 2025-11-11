@@ -9,13 +9,11 @@ const API_BASE = 'https://hadithapi.com/api';
 // --- Reader Settings ---
 interface HadithSettings {
     fontSize: number;
-    fontStyle: 'default' | 'amiri';
     lineSpacing: number;
 }
 
 const defaultSettings: HadithSettings = {
     fontSize: 16,
-    fontStyle: 'default',
     lineSpacing: 1.7,
 };
 
@@ -185,14 +183,6 @@ const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                             <button onClick={() => changeFontSize(-1)} className="px-4 py-2 text-xl font-bold text-primary">-</button>
                             <span className="text-lg font-mono text-primary">{settings.fontSize}px</span>
                             <button onClick={() => changeFontSize(1)} className="px-4 py-2 text-xl font-bold text-primary">+</button>
-                        </div>
-                    </div>
-                    {/* Font Style */}
-                    <div>
-                        <label className="block text-sm font-medium text-secondary mb-2">English Font</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => setSettings(s => ({ ...s, fontStyle: 'default' }))} className={`py-2 rounded-lg ${settings.fontStyle === 'default' ? 'bg-green-500 text-inverted' : 'bg-tertiary text-primary'}`}>Default</button>
-                            <button onClick={() => setSettings(s => ({ ...s, fontStyle: 'amiri' }))} className={`py-2 rounded-lg font-arabic ${settings.fontStyle === 'amiri' ? 'bg-green-500 text-inverted' : 'bg-tertiary text-primary'}`}>Amiri</button>
                         </div>
                     </div>
                     {/* Line Spacing */}
@@ -372,7 +362,7 @@ const HadithCard: React.FC<{ hadith: HadithData; isFavorite: boolean; onToggleFa
                 {hadith.hadithArabic}
             </p>
             <p 
-                className={`text-primary ${settings.fontStyle === 'amiri' ? 'font-arabic' : ''} break-words`}
+                className="text-primary break-words"
                 style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineSpacing }}
             >
                 {hadith.hadithEnglish}
