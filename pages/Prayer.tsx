@@ -109,21 +109,37 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
             } finally {
                 setIsAutoLocating(false);
                 setIsSearchFocused(false);
+                setSearchQuery('');
             }
         };
     
         const handleError = (err: GeolocationPositionError) => {
-            setSearchError(`Location Error: ${err.message}`);
+            let message: string;
+            switch(err.code) {
+                case err.PERMISSION_DENIED:
+                    setShowPermissionDeniedModal(true);
+                    message = "Location permission denied.";
+                    break;
+                case err.POSITION_UNAVAILABLE:
+                    message = "Location information is unavailable. Please check your device settings.";
+                    break;
+                case err.TIMEOUT:
+                    message = "Could not get location in time. Please check your device's GPS signal and try again.";
+                    break;
+                default:
+                    message = `An unknown location error occurred. (Code: ${err.code})`;
+                    break;
+            }
+            setSearchError(message);
             setIsAutoLocating(false);
         };
     
         try {
-            // Use Permissions API for a better experience
             const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
             if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt') {
                 setIsAutoLocating(true);
                 setSearchError(null);
-                navigator.geolocation.getCurrentPosition(handleSuccess, handleError);
+                navigator.geolocation.getCurrentPosition(handleSuccess, handleError, { timeout: 15000, enableHighAccuracy: true });
             } else if (permissionStatus.state === 'denied') {
                 setShowPermissionDeniedModal(true);
             }
@@ -131,14 +147,13 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                 if (permissionStatus.state === 'granted') {
                      setIsAutoLocating(true);
                      setSearchError(null);
-                     navigator.geolocation.getCurrentPosition(handleSuccess, handleError);
+                     navigator.geolocation.getCurrentPosition(handleSuccess, handleError, { timeout: 15000, enableHighAccuracy: true });
                 }
             }
         } catch (error) {
-            // Fallback for browsers that don't support Permissions API
             setIsAutoLocating(true);
             setSearchError(null);
-            navigator.geolocation.getCurrentPosition(handleSuccess, handleError);
+            navigator.geolocation.getCurrentPosition(handleSuccess, handleError, { timeout: 15000, enableHighAccuracy: true });
         }
     };
 
@@ -235,7 +250,6 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
         const prayerTimeZone = prayerData.meta.timezone;
         const now = new Date();
         
-        // Use seconds for precision, matching Home.tsx
         const timeInLocation = now.toLocaleTimeString('en-GB', {
             timeZone: prayerTimeZone,
             hour: '2-digit', minute: '2-digit', second: '2-digit',
@@ -250,21 +264,17 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
             return { name, timeInSeconds: h * 3600 + m * 60 };
         });
 
-        // Find next event (includes Sunrise)
         let nextEventIndex = prayerTimesInSeconds.findIndex(p => p.timeInSeconds > nowInSeconds);
         const nextEvent = prayerTimesInSeconds[nextEventIndex === -1 ? 0 : nextEventIndex];
 
-        // Find current main prayer period
         const mainPrayersInSeconds = prayerUIRenderOrder.map(name => prayerTimesInSeconds.find(p => p.name === name)!);
         
-        // Find the last prayer time that has passed
-        let activeMainPrayerName = 'Isha'; // Default to Isha (for time between Isha and Fajr)
+        let activeMainPrayerName = 'Isha';
         const passedMainPrayers = mainPrayersInSeconds.filter(p => p.timeInSeconds <= nowInSeconds);
         if (passedMainPrayers.length > 0) {
             activeMainPrayerName = passedMainPrayers[passedMainPrayers.length - 1].name;
         }
 
-        // Find next main prayer for highlight and countdown
         let nextMainPrayerEvent = mainPrayersInSeconds.find(p => p.timeInSeconds > nowInSeconds);
         let nextMainPrayerName: string | null = null;
         let nextMainPrayerCountdownStr: string | null = null;
@@ -280,7 +290,7 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
             } else {
                  nextMainPrayerCountdownStr = `in ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
             }
-        } else { // After Isha
+        } else { 
             nextMainPrayerName = 'Fajr';
             const fajrTimeInSeconds = mainPrayersInSeconds[0].timeInSeconds;
             const diff = (fajrTimeInSeconds + 24 * 3600) - nowInSeconds;
@@ -329,7 +339,7 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                                 </div>
                                 <div className="p-2">
                                     {searchLoading && <p className="text-center text-secondary p-2">Searching...</p>}
-                                    {searchError && <p className="text-center text-red-400 p-2">{searchError}</p>}
+                                    {searchError && <p className="text-center text-red-400 p-2 text-sm">{searchError}</p>}
                                     {searchResults.length > 0 ? (
                                         <ul className="space-y-1">
                                             {searchResults.map((city, index) => (
@@ -408,7 +418,7 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in">
                     <div className="bg-tertiary rounded-2xl w-full max-w-md p-6 text-primary">
                         <h2 className="text-xl font-bold mb-4">Location Access Denied</h2>
-                        <p className="text-secondary my-4">You have previously denied location access. To use this feature, please enable location permissions in your device's settings.</p>
+                        <p className="text-secondary my-4">To use this feature, please enable location permissions for this app in your device's settings.</p>
                         <button
                             onClick={() => setShowPermissionDeniedModal(false)}
                             className="w-full accent-bg text-inverted font-bold py-2 px-4 rounded-lg"
