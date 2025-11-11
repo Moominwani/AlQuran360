@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-type Theme = 'system' | 'light' | 'dim' | 'lightsOut' | 'darkGrey';
+type Theme = 'light' | 'dim' | 'lightsOut' | 'darkGrey';
 
 interface ThemeContextType {
   theme: Theme;
@@ -12,36 +12,16 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('appTheme');
-    return (savedTheme as Theme) || 'system';
+    return (savedTheme as Theme) || 'darkGrey';
   });
 
   useEffect(() => {
     const root = window.document.documentElement;
     
-    const applyFinalTheme = (finalTheme: 'light' | 'dim' | 'lightsOut' | 'darkGrey') => {
-        root.classList.remove('light', 'dim', 'lightsOut', 'darkGrey');
-        root.classList.add(finalTheme);
-    };
+    root.classList.remove('light', 'dim', 'lightsOut', 'darkGrey');
+    root.classList.add(theme);
     
     localStorage.setItem('appTheme', theme);
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const systemThemeListener = (e: MediaQueryListEvent) => {
-        if (theme === 'system') {
-            applyFinalTheme(e.matches ? 'darkGrey' : 'light');
-        }
-    };
-
-    if (theme === 'system') {
-        applyFinalTheme(mediaQuery.matches ? 'darkGrey' : 'light');
-        mediaQuery.addEventListener('change', systemThemeListener);
-    } else {
-        applyFinalTheme(theme as 'light' | 'dim' | 'lightsOut' | 'darkGrey');
-    }
-    
-    return () => {
-      mediaQuery.removeEventListener('change', systemThemeListener);
-    };
 
   }, [theme]);
 

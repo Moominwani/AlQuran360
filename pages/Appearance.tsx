@@ -10,7 +10,6 @@ const Appearance: React.FC<AppearanceProps> = ({ onBack }) => {
   const { theme, setTheme } = useTheme();
 
   const themes = [
-    { id: 'system', name: 'System' },
     { id: 'light', name: 'Light' },
     { id: 'dim', name: 'Dim' },
     { id: 'lightsOut', name: 'Lights Out' },
