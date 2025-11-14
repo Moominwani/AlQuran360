@@ -417,11 +417,20 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
           onToggleAyahFavorite={toggleAyahFavorite}
           onCopy={() => { navigator.clipboard.writeText(selectedAyah.text); setIsMenuOpen(false); }}
           onShare={() => {
-            if (navigator.share) {
-              navigator.share({
-                title: `Quran ${surahData.englishName}:${selectedAyah.numberInSurah}`,
-                text: `"${selectedAyah.text}" - Quran ${surahData.number}:${selectedAyah.numberInSurah}`,
-              });
+            if (!selectedAyah) return;
+            const title = `Quran ${surahData.englishName}:${selectedAyah.numberInSurah}`;
+            const textToShare = `"${selectedAyah.text}"\n\n- Quran ${surahData.number}:${selectedAyah.numberInSurah}`;
+
+            if ((window as any).AndroidShareInterface && typeof (window as any).AndroidShareInterface.shareText === 'function') {
+                (window as any).AndroidShareInterface.shareText(title, textToShare);
+            } else if (navigator.share) {
+                navigator.share({
+                    title: title,
+                    text: textToShare,
+                }).catch(error => console.log('Error sharing:', error));
+            } else {
+                navigator.clipboard.writeText(textToShare);
+                alert("Content copied to clipboard.");
             }
             setIsMenuOpen(false);
           }}

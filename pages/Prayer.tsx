@@ -100,45 +100,63 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
         setIsAutoLocating(true);
         setSearchError(null);
     
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    if (!response.ok) throw new Error('Reverse geocoding failed');
-                    const data = await response.json();
-                    const city = data.address.city || data.address.town || data.address.village || 'Current Location';
-                    handleLocationUpdate({ city, latitude, longitude });
-                } catch (e) {
-                     handleLocationUpdate({ city: 'Current Location', latitude, longitude });
-                } finally {
-                    setIsAutoLocating(false);
-                    setIsSearchFocused(false);
-                    setSearchQuery('');
-                }
-            },
-            (err) => {
-                let message: string;
-                switch(err.code) {
-                    case err.PERMISSION_DENIED:
-                        message = "Location permission denied. Please enable it in your device settings.";
-                        setShowPermissionDeniedModal(true);
-                        break;
-                    case err.POSITION_UNAVAILABLE:
-                        message = "Location information is unavailable. Check GPS.";
-                        break;
-                    case err.TIMEOUT:
-                        message = "Getting location timed out. Please try again.";
-                        break;
-                    default:
-                        message = `An unknown location error occurred.`;
-                        break;
-                }
-                setSearchError(message);
+        const getLocation = (options: PositionOptions): Promise<GeolocationPosition> => {
+            return new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, options);
+            });
+        };
+    
+        const processPosition = async (position: GeolocationPosition) => {
+            const { latitude, longitude } = position.coords;
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                if (!response.ok) throw new Error('Reverse geocoding failed');
+                const data = await response.json();
+                const city = data.address.city || data.address.town || data.address.village || 'Current Location';
+                handleLocationUpdate({ city, latitude, longitude });
+            } catch (e) {
+                 handleLocationUpdate({ city: 'Current Location', latitude, longitude });
+            } finally {
                 setIsAutoLocating(false);
-            },
-            { timeout: 10000, enableHighAccuracy: true }
-        );
+                setIsSearchFocused(false);
+                setSearchQuery('');
+            }
+        };
+    
+        const handleError = (err: GeolocationPositionError) => {
+            let message: string;
+            switch(err.code) {
+                case err.PERMISSION_DENIED:
+                    message = "Location permission denied. Please enable it in your device settings.";
+                    setShowPermissionDeniedModal(true);
+                    break;
+                case err.POSITION_UNAVAILABLE:
+                    message = "Location information is unavailable. Check GPS.";
+                    break;
+                case err.TIMEOUT:
+                    message = "Getting location timed out. Please try again.";
+                    break;
+                default:
+                    message = `An unknown location error occurred.`;
+                    break;
+            }
+            setSearchError(message);
+            setIsAutoLocating(false);
+        };
+    
+        // Try high accuracy first
+        getLocation({ timeout: 8000, enableHighAccuracy: true })
+            .then(processPosition)
+            .catch(err => {
+                // If high accuracy fails, try low accuracy
+                if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+                    getLocation({ timeout: 12000, enableHighAccuracy: false })
+                        .then(processPosition)
+                        .catch(handleError); // Handle final error
+                } else {
+                    handleError(err); // Handle other errors like permission denied
+                }
+            });
     };
 
 
@@ -400,15 +418,26 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
             </div>
             {showPermissionDeniedModal && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-tertiary rounded-2xl w-full max-w-md p-6 text-primary">
+                    <div className="bg-tertiary rounded-2xl w-full max-w-md p-6 text-primary text-center">
                         <h2 className="text-xl font-bold mb-4">Location Access Denied</h2>
-                        <p className="text-secondary my-4">To use this feature, please enable location permissions for this app in your device's settings.</p>
-                        <button
-                            onClick={() => setShowPermissionDeniedModal(false)}
-                            className="w-full accent-bg text-inverted font-bold py-2 px-4 rounded-lg"
-                        >
-                            OK
-                        </button>
+                        <p className="text-secondary my-4">To automatically update your location, please enable location permissions for this app in your device's settings.</p>
+                        <p className="text-sm text-secondary my-4 bg-primary p-3 rounded-lg">
+                            <strong>How:</strong> Go to your phone's settings, find permissions for this app, and enable Location access.
+                        </p>
+                        <div className="flex items-center space-x-3 mt-6">
+                            <button
+                                onClick={() => setShowPermissionDeniedModal(false)}
+                                className="w-full bg-primary text-primary font-bold py-2 px-4 rounded-lg"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => { setShowPermissionDeniedModal(false); handleUseCurrentLocation(); }}
+                                className="w-full accent-bg text-inverted font-bold py-2 px-4 rounded-lg"
+                            >
+                                Retry
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

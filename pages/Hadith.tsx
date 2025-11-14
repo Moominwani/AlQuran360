@@ -335,12 +335,22 @@ const HadithCard: React.FC<{ hadith: HadithData; isFavorite: boolean; onToggleFa
     };
 
     const handleShare = () => {
-        if (navigator.share) {
+        const title = `Hadith: ${hadith.book.bookName} ${hadith.hadithNumber}`;
+        const textToShare = `${hadith.hadithEnglish}\n\n[${hadith.book.bookName} ${hadith.hadithNumber}]`;
+
+        // 1. Check for custom Android WebView interface
+        if ((window as any).AndroidShareInterface && typeof (window as any).AndroidShareInterface.shareText === 'function') {
+            (window as any).AndroidShareInterface.shareText(title, textToShare);
+        } 
+        // 2. Check for standard Web Share API
+        else if (navigator.share) {
             navigator.share({
-                title: `Hadith: ${hadith.book.bookName} ${hadith.hadithNumber}`,
-                text: `${hadith.hadithEnglish}\n\n[${hadith.book.bookName} ${hadith.hadithNumber}]`,
+                title: title,
+                text: textToShare,
             }).catch(error => console.log('Error sharing:', error));
-        } else {
+        } 
+        // 3. Fallback to copying to clipboard
+        else {
             handleCopy();
             alert("Share feature not supported. Hadith copied to clipboard.");
         }
