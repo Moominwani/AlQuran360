@@ -421,53 +421,74 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
             const title = `Quran ${surahData.englishName}:${selectedAyah.numberInSurah}`;
             const textToShare = `"${selectedAyah.text}"\n\n- Quran ${surahData.number}:${selectedAyah.numberInSurah}`;
 
-            // FOR ANDROID APK (WEBVIEW):
-            // This code checks for a special 'AndroidShareInterface' object on the window.
-            // To make sharing work in your WebView APK, you must create and inject this
-            // interface from your native Android code.
+            // --- NATIVE ANDROID SHARE INTEGRATION ---
             //
-            // Here is an example of how to do this in your Android Activity (Kotlin):
+            // If you are embedding this application in an Android WebView (e.g., using AIDE),
+            // the standard Web Share API (`navigator.share`) might not work, especially if you
+            // are loading local files (`file:///`).
             //
-            // 1. Create a class for the interface:
-            //    class WebAppInterface(private val mContext: Context) {
-            //        @android.webkit.JavascriptInterface
-            //        fun shareText(title: String, text: String) {
-            //            val sendIntent: Intent = Intent().apply {
-            //                action = Intent.ACTION_SEND
-            //                putExtra(Intent.EXTRA_TITLE, title)
-            //                putExtra(Intent.EXTRA_TEXT, text)
-            //                type = "text/plain"
-            //            }
-            //            val shareIntent = Intent.createChooser(sendIntent, null)
-            //            mContext.startActivity(shareIntent)
-            //        }
-            //    }
+            // To enable the share feature, you must create a bridge between JavaScript and your
+            // native Android code. This is done using a JavaScript Interface.
             //
-            // 2. Attach it to your WebView:
-            //    yourWebView.addJavascriptInterface(WebAppInterface(this), "AndroidShareInterface")
+            // STEP 1: ENABLE JAVASCRIPT IN YOUR WEBVIEW
+            // In your Android Activity where you set up the WebView, make sure JavaScript is enabled:
             //
-            console.log("Attempting to share...");
-            console.log("Checking for AndroidShareInterface:", window.hasOwnProperty('AndroidShareInterface'));
-            if ((window as any).AndroidShareInterface) {
-                console.log("AndroidShareInterface object found. Checking for shareText method:", typeof (window as any).AndroidShareInterface.shareText);
-            } else {
-                console.log("AndroidShareInterface not found.");
-            }
-            console.log("Checking for navigator.share:", navigator.share !== undefined);
+            //   yourWebView.settings.javaScriptEnabled = true
+            //
+            // STEP 2: CREATE THE JAVASCRIPT INTERFACE CLASS IN JAVA/KOTLIN
+            // This class will contain the native Android code to be called from JavaScript.
+            //
+            //   // For Kotlin:
+            //   import android.content.Context
+            //   import android.content.Intent
+            //   import android.webkit.JavascriptInterface
+            //
+            //   class WebAppInterface(private val mContext: Context) {
+            //       @JavascriptInterface
+            //       fun shareText(title: String, text: String) {
+            //           val sendIntent: Intent = Intent().apply {
+            //               action = Intent.ACTION_SEND
+            //               putExtra(Intent.EXTRA_TITLE, title)
+            //               putExtra(Intent.EXTRA_TEXT, text)
+            //               type = "text/plain"
+            //           }
+            //           val shareIntent = Intent.createChooser(sendIntent, "Share via")
+            //           mContext.startActivity(shareIntent)
+            //       }
+            //   }
+            //
+            // STEP 3: ATTACH THE INTERFACE TO YOUR WEBVIEW
+            // This exposes the `shareText` method to the JavaScript running inside the WebView
+            // under the global name `AndroidShareInterface`.
+            //
+            //   yourWebView.addJavascriptInterface(WebAppInterface(this), "AndroidShareInterface")
+            //
+            // With these steps completed, the following JavaScript code will correctly trigger
+            // the native Android share dialog.
 
+            // 1. Check for custom Android WebView interface
             if ((window as any).AndroidShareInterface && typeof (window as any).AndroidShareInterface.shareText === 'function') {
-                console.log("Using AndroidShareInterface.shareText to share.");
                 (window as any).AndroidShareInterface.shareText(title, textToShare);
-            } else if (navigator.share) {
-                console.log("Using navigator.share API.");
+            } 
+            // 2. Check for standard Web Share API (for browsers)
+            else if (navigator.share) {
                 navigator.share({
                     title: title,
                     text: textToShare,
-                }).catch(error => console.log('Error sharing:', error));
-            } else {
-                console.log("No share mechanism found. Falling back to copy.");
+                }).catch(error => {
+                    console.log('Navigator.share error, falling back to copy:', error);
+                    navigator.clipboard.writeText(textToShare); // Fallback on share error
+                });
+            } 
+            // 3. Fallback to copying to clipboard with an informative alert
+            else {
                 navigator.clipboard.writeText(textToShare);
-                alert("Share feature not supported. This can happen if the native Android interface is not available in the WebView. Content copied to clipboard.");
+                alert(
+                    "Native Share Failed\n\n" +
+                    "This is expected if you're running this app inside a custom Android WebView.\n\n" +
+                    "FIX: You need to implement the 'AndroidShareInterface' in your native Android code. Detailed instructions are in the code comments of SurahDetail.tsx and Hadith.tsx.\n\n" +
+                    "The content has been copied to your clipboard as a fallback."
+                );
             }
             setIsMenuOpen(false);
           }}
