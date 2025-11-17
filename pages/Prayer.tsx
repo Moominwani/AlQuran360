@@ -422,7 +422,7 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                         <h2 className="text-xl font-bold mb-4">Location Access Denied</h2>
                         <p className="text-secondary my-4">To automatically update your location, please enable location permissions for this app in your device's settings.</p>
                         <p className="text-sm text-secondary my-4 bg-primary p-3 rounded-lg">
-                            <strong>How:</strong> Go to your phone's settings, find permissions for this app, and enable Location access.
+                            <strong>How:</strong> Go to your phone's settings and grant location access to this app. For WebView users, ensure the native app is configured for geolocation.
                         </p>
                         <div className="flex items-center space-x-3 mt-6">
                             <button

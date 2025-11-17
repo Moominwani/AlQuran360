@@ -124,7 +124,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({ onLocationSet }) => {
                     <h2 className="text-xl font-bold mb-4">Location Access Denied</h2>
                     <p className="text-secondary my-4">To automatically detect your location, please enable location permissions for this app in your device's settings.</p>
                     <p className="text-sm text-secondary my-4 bg-tertiary p-3 rounded-lg">
-                        <strong>How:</strong> Go to your phone's settings, find permissions for this app, and enable Location access.
+                        <strong>How:</strong> Go to your phone's settings and grant location access to this app. For WebView users, ensure the native app is configured for geolocation.
                     </p>
                     <div className="mt-6 space-y-3">
                         <button onClick={fetchAndSetLocation} className="w-full accent-bg text-inverted font-bold py-3 px-4 rounded-lg">
