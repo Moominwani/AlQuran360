@@ -421,6 +421,31 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surahNumber, onBack, startPla
             const title = `Quran ${surahData.englishName}:${selectedAyah.numberInSurah}`;
             const textToShare = `"${selectedAyah.text}"\n\n- Quran ${surahData.number}:${selectedAyah.numberInSurah}`;
 
+            // FOR ANDROID APK (WEBVIEW):
+            // This code checks for a special 'AndroidShareInterface' object on the window.
+            // To make sharing work in your WebView APK, you must create and inject this
+            // interface from your native Android code.
+            //
+            // Here is an example of how to do this in your Android Activity (Kotlin):
+            //
+            // 1. Create a class for the interface:
+            //    class WebAppInterface(private val mContext: Context) {
+            //        @android.webkit.JavascriptInterface
+            //        fun shareText(title: String, text: String) {
+            //            val sendIntent: Intent = Intent().apply {
+            //                action = Intent.ACTION_SEND
+            //                putExtra(Intent.EXTRA_TITLE, title)
+            //                putExtra(Intent.EXTRA_TEXT, text)
+            //                type = "text/plain"
+            //            }
+            //            val shareIntent = Intent.createChooser(sendIntent, null)
+            //            mContext.startActivity(shareIntent)
+            //        }
+            //    }
+            //
+            // 2. Attach it to your WebView:
+            //    yourWebView.addJavascriptInterface(WebAppInterface(this), "AndroidShareInterface")
+            //
             if ((window as any).AndroidShareInterface && typeof (window as any).AndroidShareInterface.shareText === 'function') {
                 (window as any).AndroidShareInterface.shareText(title, textToShare);
             } else if (navigator.share) {

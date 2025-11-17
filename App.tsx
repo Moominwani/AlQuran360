@@ -38,30 +38,21 @@ const App: React.FC = () => {
             const offlineQuran = await getQuranFromDB();
             if (!offlineQuran) {
                 if (navigator.onLine) {
-                    console.log("Attempting to download Quran for offline use...");
                     const response = await fetch('https://api.alquran.cloud/v1/quran/quran-uthmani');
                     if (!response.ok) throw new Error('Network response was not ok.');
                     const data = await response.json();
                     if (data.code === 200 && data.data) {
                         await saveQuranToDB(data.data);
-                        console.log("Offline Quran data saved successfully.");
                     } else {
                         throw new Error(data.status || 'Failed to get Quran data');
                     }
-                } else {
-                    console.log("Offline, cannot download Quran data.");
                 }
             }
         } catch (error) {
             console.error("Failed to initialize offline Quran:", error);
         }
     };
-    
     initOfflineQuran();
-    
-    // Attempt to download Quran data when the app comes online
-    const handleOnline = () => initOfflineQuran();
-    window.addEventListener('online', handleOnline);
 
     // Register Service Worker for offline capabilities
     if ('serviceWorker' in navigator) {
@@ -75,10 +66,7 @@ const App: React.FC = () => {
                 });
         });
     }
-    
-    return () => {
-        window.removeEventListener('online', handleOnline);
-    };
+
   }, []);
   
   // Effect to manage browser history

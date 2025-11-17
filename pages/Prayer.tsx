@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PrayerData } from '../types';
 import { ChevronLeftIcon, ChevronRightIcon, SearchIcon, LocationIcon } from '../components/icons/MiscIcons';
 import { useTimeFormat } from '../contexts/TimeFormatContext';
-import { getMonthlyPrayerTimes, saveMonthlyPrayerTimes } from '../utils/db';
 
 // The full list of times to fetch from API and for logic
 const prayerApiOrder = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
@@ -31,7 +30,6 @@ interface City {
 const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
     const [location, setLocation] = useState<{ city: string, latitude: number, longitude: number } | null>(null);
     const [prayerData, setPrayerData] = useState<PrayerData | null>(null);
-    const [monthlyData, setMonthlyData] = useState<any[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -79,7 +77,6 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
         localStorage.setItem('userLocation', JSON.stringify(newLocation));
         setLocation(newLocation);
         setPrayerData(null);
-        setMonthlyData(null); // Clear monthly data to force refetch
         setLoading(true);
     };
 
@@ -169,6 +166,8 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
     }, []);
 
     const handleDateChange = (offset: number) => {
+        setPrayerData(null);
+        setLoading(true);
         setCurrentDate(prevDate => {
             const newDate = new Date(prevDate);
             newDate.setDate(newDate.getDate() + offset);
@@ -210,46 +209,17 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
         if (location) {
             const fetchPrayerTimes = async () => {
                 setLoading(true);
-                setError(null);
-                setPrayerData(null); // Clear single-day data while fetching month
-                
-                const month = currentDate.getMonth() + 1;
-                const year = currentDate.getFullYear();
-                const day = currentDate.getDate();
-                
-                const key = `prayers_${year}_${month}_${location.latitude.toFixed(2)}_${location.longitude.toFixed(2)}`;
-                
+                const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${currentDate.getFullYear()}`;
                 try {
-                    // Check component state first to avoid DB read on day-by-day navigation
-                    let newMonthlyData = monthlyData;
-                    if (!newMonthlyData || newMonthlyData[0]?.date.gregorian.month.number !== month) {
-                        newMonthlyData = await getMonthlyPrayerTimes(key);
-                    }
-    
-                    if (!newMonthlyData && navigator.onLine) {
-                        const response = await fetch(`https://api.aladhan.com/v1/calendar/${year}/${month}?latitude=${location.latitude}&longitude=${location.longitude}&method=3`);
-                        if (!response.ok) throw new Error('Failed to fetch prayer times.');
-                        const data = await response.json();
-                        if (data.code === 200) {
-                            newMonthlyData = data.data;
-                            await saveMonthlyPrayerTimes(key, newMonthlyData);
-                        } else {
-                            throw new Error(data.status || 'Could not fetch prayer times.');
-                        }
-                    }
-                    
-                    if (newMonthlyData) {
-                        setMonthlyData(newMonthlyData); // Cache the whole month in component state
-                        const dayData = newMonthlyData.find(d => d.date.gregorian.day == day);
-                        if (dayData) {
-                            setPrayerData(dayData);
-                        } else {
-                            throw new Error(`Could not find prayer times for day ${day} in cached data.`);
-                        }
+                    const response = await fetch(`https://api.aladhan.com/v1/timings/${formattedDate}?latitude=${location.latitude}&longitude=${location.longitude}&method=3`);
+                    if (!response.ok) throw new Error('Failed to fetch prayer times.');
+                    const data = await response.json();
+                    if (data.code === 200) {
+                        setPrayerData(data.data);
+                        setError(null);
                     } else {
-                        throw new Error("You are offline and prayer times for this month are not saved.");
+                        setError(data.status);
                     }
-    
                 } catch (err) {
                     if (!navigator.onLine) {
                         setError("You're offline. Prayer times for this date are not available in the cache.");
@@ -452,7 +422,7 @@ const Prayer: React.FC<PrayerProps> = ({ dateOffset }) => {
                         <h2 className="text-xl font-bold mb-4">Location Access Denied</h2>
                         <p className="text-secondary my-4">To automatically update your location, please enable location permissions for this app in your device's settings.</p>
                         <p className="text-sm text-secondary my-4 bg-primary p-3 rounded-lg">
-                            <strong>How:</strong> Go to your phone's settings and grant location access to this app. For WebView users, ensure the native app is configured for geolocation.
+                            <strong>How:</strong> Go to your phone's settings, find permissions for this app, and enable Location access.
                         </p>
                         <div className="flex items-center space-x-3 mt-6">
                             <button
