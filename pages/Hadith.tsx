@@ -363,12 +363,23 @@ const HadithCard: React.FC<{ hadith: HadithData; isFavorite: boolean; onToggleFa
         // 2. Attach it to your WebView:
         //    yourWebView.addJavascriptInterface(WebAppInterface(this), "AndroidShareInterface")
         //
+        console.log("Attempting to share...");
+        console.log("Checking for AndroidShareInterface:", window.hasOwnProperty('AndroidShareInterface'));
+        if ((window as any).AndroidShareInterface) {
+             console.log("AndroidShareInterface object found. Checking for shareText method:", typeof (window as any).AndroidShareInterface.shareText);
+        } else {
+            console.log("AndroidShareInterface not found.");
+        }
+        console.log("Checking for navigator.share:", navigator.share !== undefined);
+
         // 1. Check for custom Android WebView interface
         if ((window as any).AndroidShareInterface && typeof (window as any).AndroidShareInterface.shareText === 'function') {
+            console.log("Using AndroidShareInterface.shareText to share.");
             (window as any).AndroidShareInterface.shareText(title, textToShare);
         } 
         // 2. Check for standard Web Share API
         else if (navigator.share) {
+            console.log("Using navigator.share API.");
             navigator.share({
                 title: title,
                 text: textToShare,
@@ -376,8 +387,9 @@ const HadithCard: React.FC<{ hadith: HadithData; isFavorite: boolean; onToggleFa
         } 
         // 3. Fallback to copying to clipboard
         else {
+            console.log("No share mechanism found. Falling back to copy.");
             handleCopy();
-            alert("Share feature not supported. Hadith copied to clipboard.");
+            alert("Share feature not supported. This can happen if the native Android interface is not available in the WebView. Content copied to clipboard.");
         }
     };
     
