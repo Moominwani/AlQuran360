@@ -5,6 +5,7 @@ import { Page, PrayerData } from '../types';
 import { useTimeFormat } from '../contexts/TimeFormatContext';
 import { QuranIcon } from '../components/icons/NavIcons';
 import { AzkarIcon, NearbyMosqueIcon, QiblaCompassIcon, TasbihIcon, PrayerManIcon, LocationIcon } from '../components/icons/MiscIcons';
+import { getMonthlyPrayerTimes, saveMonthlyPrayerTimes } from '../utils/db';
 
 const prayerOrder = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
@@ -70,13 +71,40 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         if (location) {
             const fetchPrayerTimes = async () => {
                 setLoading(true);
-                const date = new Date();
-                const formattedDate = `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+                setError(null);
+                const date = new Date(); // Use current date for Home page
+                const month = date.getMonth() + 1;
+                const year = date.getFullYear();
+                const day = date.getDate();
+
+                const key = `prayers_${year}_${month}_${location.latitude.toFixed(2)}_${location.longitude.toFixed(2)}`;
+
                 try {
-                    const response = await fetch(`https://api.aladhan.com/v1/timings/${formattedDate}?latitude=${location.latitude}&longitude=${location.longitude}&method=3`);
-                    if (!response.ok) throw new Error('Failed to fetch prayer times.');
-                    const data = await response.json();
-                    setPrayerData(data.code === 200 ? data.data : null);
+                    let monthlyData = await getMonthlyPrayerTimes(key);
+
+                    if (!monthlyData && navigator.onLine) {
+                        const response = await fetch(`https://api.aladhan.com/v1/calendar/${year}/${month}?latitude=${location.latitude}&longitude=${location.longitude}&method=3`);
+                        if (!response.ok) throw new Error('Failed to fetch prayer times.');
+                        const data = await response.json();
+                        if (data.code === 200) {
+                            monthlyData = data.data;
+                            await saveMonthlyPrayerTimes(key, monthlyData);
+                        } else {
+                            throw new Error(data.status || 'Could not fetch prayer times.');
+                        }
+                    }
+                    
+                    if (monthlyData) {
+                        const todaysData = monthlyData.find(d => d.date.gregorian.day == day);
+                        if (todaysData) {
+                            setPrayerData(todaysData);
+                        } else {
+                            throw new Error(`Could not find prayer times for day ${day} in cached data.`);
+                        }
+                    } else {
+                        throw new Error("You are offline and prayer times for this month are not saved.");
+                    }
+
                 } catch (err) {
                     setError(err instanceof Error ? err.message : 'An error occurred.');
                 } finally {

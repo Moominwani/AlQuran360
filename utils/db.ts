@@ -1,10 +1,11 @@
 import { Ayah } from '../types';
 
 const DB_NAME = 'AlQuran360DB';
-const DB_VERSION = 2; // Incremented DB version
+const DB_VERSION = 3; // Incremented DB version
 const QURAN_STORE_NAME = 'quran_text';
 const TASBEEH_STORE_NAME = 'tasbeeh_data';
 const SETTINGS_STORE_NAME = 'app_settings';
+const PRAYER_TIMES_STORE_NAME = 'prayer_times';
 
 const FULL_QURAN_KEY = 'full_quran_uthmani';
 const LAST_DHIKR_KEY = 'last_selected_dhikr_id';
@@ -62,6 +63,9 @@ export const initDB = (): Promise<IDBDatabase> => {
             }
             if (!db.objectStoreNames.contains(SETTINGS_STORE_NAME)) {
                 db.createObjectStore(SETTINGS_STORE_NAME);
+            }
+            if (!db.objectStoreNames.contains(PRAYER_TIMES_STORE_NAME)) {
+                db.createObjectStore(PRAYER_TIMES_STORE_NAME);
             }
         };
     });
@@ -126,6 +130,36 @@ export const getSetting = async <T>(key: string): Promise<T | null> => {
         request.onerror = (err) => {
             console.error(`Error getting setting '${key}':`, err);
             reject(`Could not get setting '${key}'`);
+        };
+    });
+};
+
+
+// --- Prayer Times Cache ---
+export const saveMonthlyPrayerTimes = async (key: string, data: any): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(PRAYER_TIMES_STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(PRAYER_TIMES_STORE_NAME);
+        const request = store.put(data, key);
+        request.onsuccess = () => resolve();
+        request.onerror = (err) => {
+            console.error(`Error saving prayer times for key '${key}':`, err);
+            reject(`Could not save prayer times`);
+        };
+    });
+};
+
+export const getMonthlyPrayerTimes = async (key: string): Promise<any[] | null> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(PRAYER_TIMES_STORE_NAME, 'readonly');
+        const store = transaction.objectStore(PRAYER_TIMES_STORE_NAME);
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = (err) => {
+            console.error(`Error getting prayer times for key '${key}':`, err);
+            reject(`Could not get prayer times`);
         };
     });
 };
